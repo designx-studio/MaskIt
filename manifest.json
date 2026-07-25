@@ -9,7 +9,12 @@
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
-    "https://mail.google.com/*"
+    "https://mail.google.com/*",
+    "https://gemini.google.com/*",
+    "https://copilot.microsoft.com/*",
+    "https://*.perplexity.ai/*",
+    "https://*.anthropic.com/*",
+    "https://claude.ai/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'"
@@ -51,7 +56,12 @@
       "matches": [
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
-        "https://mail.google.com/*"
+        "https://mail.google.com/*",
+        "https://gemini.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://*.perplexity.ai/*",
+        "https://*.anthropic.com/*",
+        "https://claude.ai/*"
       ],
       "js": [
         "settings.js",
@@ -62,6 +72,29 @@
       ],
       "run_at": "document_start",
       "all_frames": true
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "settings.js",
+        "detector.js",
+        "sanitizer.js",
+        "ai-intercept.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false,
+      "exclude_matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://mail.google.com/*",
+        "https://gemini.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://*.perplexity.ai/*",
+        "https://*.anthropic.com/*",
+        "https://claude.ai/*"
+      ]
     }
   ]
 }

@@ -43,7 +43,8 @@ const MASKIT_DEFAULTS = {
     BANK_ACCOUNT: true,
     customRules: [],
     pauseAutoResume: true,
-    pauseAutoResumeSecs: 30
+    pauseAutoResumeSecs: 30,
+    browserAIProtection: true
 };
 
 // ── Severity defaults ───────────────────────────────────────────────────────
