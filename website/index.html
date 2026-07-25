@@ -1,169 +1,172 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Maskit — Stop leaking sensitive data in the browser</title>
-    <meta
-      name="description"
-      content="Maskit redacts emails, API keys, phone numbers, and more as you paste, copy, or type — locally in your browser."
-    />
-    <link rel="icon" type="image/png" href="../icons/icon48.png" />
-  </head>
-  <body>
-    <header class="hero">
-      <div>
-        <img src="../icons/icon48.png" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px" />
-        <span class="badge">Chrome Extension · v2.1</span>
-        <h1>Stop accidental data leaks before you hit send.</h1>
-        <p class="lead">
-          Maskit helps reduce accidental exposure of sensitive customer data on ChatGPT
-          and Gmail. Everything runs locally in your browser — nothing is uploaded.
-        </p>
-        <div class="cta-row">
-          <a class="btn btn-primary" href="#install">Install Maskit</a>
-          <a class="btn btn-secondary" href="demo.html">Watch demo</a>
-        </div>
-      </div>
 
-      <div class="demo-card" aria-label="Live product demo">
-        <div class="demo-top">
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
-        </div>
-        <div class="demo-screen">
-          <div class="demo-label">chatgpt.com — compose</div>
-          <div id="demo-input" class="demo-input" aria-live="polite"></div>
-          <div id="demo-toast" class="demo-toast">Maskit: sanitized 2 sensitive item(s)</div>
-        </div>
-      </div>
-    </header>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Maskit — Stop leaking sensitive data in the browser</title>
+  <meta name="description"
+    content="Maskit redacts emails, API keys, phone numbers, and more as you paste, copy, or type — locally in your browser." />
+  <link rel="icon" type="image/png" href="/icons/icon48.png" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
 
-    <section class="section">
-      <h2>Built for real support workflows</h2>
-      <div class="features">
-        <article class="feature">
-          <h3>Paste, copy, and typing</h3>
-          <p>Redacts sensitive values whether they arrive from the clipboard or are typed slowly between words.</p>
-        </article>
-        <article class="feature">
-          <h3>ChatGPT + Gmail ready</h3>
-          <p>Uses editor-aware insertion so rich text fields stay stable instead of breaking mid-compose.</p>
-        </article>
-        <article class="feature">
-          <h3>API keys and PII</h3>
-          <p>Detects OpenAI, Stripe, GitHub, AWS, emails, cards, SSNs, and your own custom regex rules.</p>
-        </article>
-        <article class="feature">
-          <h3>Review before redact</h3>
-          <p>Optionally confirm what will be removed before Maskit replaces anything.</p>
-        </article>
-        <article class="feature">
-          <h3>Site controls</h3>
-          <p>Run everywhere, or limit protection to an allowlist or blocklist per domain.</p>
-        </article>
-        <article class="feature">
-          <h3>Private by design</h3>
-          <p>Everything runs locally. No page content is sent to a server.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="section" id="install">
-      <h2>Install in 3 steps</h2>
-      <div class="steps">
-        <article class="step">
-          <h3>1. Load unpacked</h3>
-          <p>Open <code>chrome://extensions</code>, enable Developer mode, and load the Maskit folder.</p>
-        </article>
-        <article class="step">
-          <h3>2. Pin Maskit</h3>
-          <p>Click the puzzle icon and pin Maskit. The toolbar badge shows <strong>ON</strong> when a page is protected.</p>
-        </article>
-        <article class="step">
-          <h3>3. Try a paste</h3>
-          <p>Paste <code>john@example.com</code> or an API key into ChatGPT and watch it redact instantly.</p>
-        </article>
-      </div>
-    </section>
-
-    <footer class="footer">
-      <p>
-        <a href="../privacy-policy.html">Privacy policy</a> ·
-        <a href="demo.html">Demo</a> ·
-        <a href="../BUILD.md">Build docs</a>
+<body>
+  <header class="hero">
+    <div>
+      <img src="/icons/icon48.png" alt="" width="28" height="28" style="vertical-align: middle; margin-right: 8px" />
+      <span class="badge">Chrome Extension · v2.1</span>
+      <h1>Stop accidental data leaks before you hit send.</h1>
+      <p class="lead">
+        Maskit helps reduce accidental exposure of sensitive customer data on ChatGPT
+        and Gmail. Everything runs locally in your browser — nothing is uploaded.
       </p>
-    </footer>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#install">Install Maskit</a>
+        <a class="btn btn-secondary" href="demo.html">Watch demo</a>
+      </div>
+    </div>
 
-    <script>
-      const lines = [
-        "Customer issue:",
-        "Email: john@example.com",
-        "API key: sk-abcdefghijklmnopqrstuvwxyz1234",
-        "Please investigate ASAP"
-      ];
+    <div class="demo-card" aria-label="Live product demo">
+      <div class="demo-top">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </div>
+      <div class="demo-screen">
+        <div class="demo-label">chatgpt.com — compose</div>
+        <div id="demo-input" class="demo-input" aria-live="polite"></div>
+        <div id="demo-toast" class="demo-toast">Maskit: sanitized 2 sensitive item(s)</div>
+      </div>
+    </div>
+  </header>
 
-      const finalLines = [
-        "Customer issue:",
-        "Email: [EMAIL_REDACTED]",
-        "API key: [API_KEY_REDACTED]",
-        "Please investigate ASAP"
-      ];
+  <section class="section">
+    <h2>Built for real support workflows</h2>
+    <div class="features">
+      <article class="feature">
+        <h3>Paste, copy, and typing</h3>
+        <p>Redacts sensitive values whether they arrive from the clipboard or are typed slowly between words.</p>
+      </article>
+      <article class="feature">
+        <h3>ChatGPT + Gmail ready</h3>
+        <p>Uses editor-aware insertion so rich text fields stay stable instead of breaking mid-compose.</p>
+      </article>
+      <article class="feature">
+        <h3>API keys and PII</h3>
+        <p>Detects OpenAI, Stripe, GitHub, AWS, emails, cards, SSNs, and your own custom regex rules.</p>
+      </article>
+      <article class="feature">
+        <h3>Review before redact</h3>
+        <p>Optionally confirm what will be removed before Maskit replaces anything.</p>
+      </article>
+      <article class="feature">
+        <h3>Site controls</h3>
+        <p>Run everywhere, or limit protection to an allowlist or blocklist per domain.</p>
+      </article>
+      <article class="feature">
+        <h3>Private by design</h3>
+        <p>Everything runs locally. No page content is sent to a server.</p>
+      </article>
+    </div>
+  </section>
 
-      const input = document.getElementById("demo-input");
-      const toast = document.getElementById("demo-toast");
-      let line = 0;
-      let char = 0;
-      let rendered = [];
-      const redactedLines = new Set();
+  <section class="section" id="install">
+    <h2>Install in 3 steps</h2>
+    <div class="steps">
+      <article class="step">
+        <h3>1. Load unpacked</h3>
+        <p>Open <code>chrome://extensions</code>, enable Developer mode, and load the Maskit folder.</p>
+      </article>
+      <article class="step">
+        <h3>2. Pin Maskit</h3>
+        <p>Click the puzzle icon and pin Maskit. The toolbar badge shows <strong>ON</strong> when a page is protected.
+        </p>
+      </article>
+      <article class="step">
+        <h3>3. Try a paste</h3>
+        <p>Paste <code>john@example.com</code> or an API key into ChatGPT and watch it redact instantly.</p>
+      </article>
+    </div>
+  </section>
 
-      function render() {
-        input.innerHTML = rendered
-          .map((text, index) => {
-            if (redactedLines.has(index)) {
-              return `<span class="redacted">${finalLines[index]}</span>`;
-            }
-            return text;
-          })
-          .join("\n");
-      }
+  <footer class="footer">
+    <p>
+      <a href="../privacy-policy.html">Privacy policy</a> ·
+      <a href="demo.html">Demo</a> ·
+      <a href="../BUILD.md">Build docs</a>
+    </p>
+  </footer>
 
-      function typeNext() {
-        if (line >= lines.length) {
-          toast.classList.add("show");
-          setTimeout(() => {
-            line = 0;
-            char = 0;
-            rendered = [];
-            redactedLines.clear();
-            toast.classList.remove("show");
-            render();
-            setTimeout(typeNext, 1200);
-          }, 2600);
-          return;
-        }
+  <script>
+    const lines = [
+      "Customer issue:",
+      "Email: john@example.com",
+      "API key: sk-abcdefghijklmnopqrstuvwxyz1234",
+      "Please investigate ASAP"
+    ];
 
-        const current = lines[line];
-        rendered[line] = current.slice(0, char + 1);
-        char += 1;
-        render();
+    const finalLines = [
+      "Customer issue:",
+      "Email: [EMAIL_REDACTED]",
+      "API key: [API_KEY_REDACTED]",
+      "Please investigate ASAP"
+    ];
 
-        if (char >= current.length) {
-          if (line === 1 || line === 2) {
-            redactedLines.add(line);
-            render();
+    const input = document.getElementById("demo-input");
+    const toast = document.getElementById("demo-toast");
+    let line = 0;
+    let char = 0;
+    let rendered = [];
+    const redactedLines = new Set();
+
+    function render() {
+      input.innerHTML = rendered
+        .map((text, index) => {
+          if (redactedLines.has(index)) {
+            return `<span class="redacted">${finalLines[index]}</span>`;
           }
-          line += 1;
-          char = 0;
-          setTimeout(typeNext, line === 2 || line === 3 ? 500 : 280);
-          return;
-        }
+          return text;
+        })
+        .join("\n");
+    }
 
-        setTimeout(typeNext, 38);
+    function typeNext() {
+      if (line >= lines.length) {
+        toast.classList.add("show");
+        setTimeout(() => {
+          line = 0;
+          char = 0;
+          rendered = [];
+          redactedLines.clear();
+          toast.classList.remove("show");
+          render();
+          setTimeout(typeNext, 1200);
+        }, 2600);
+        return;
       }
 
-      typeNext();
-    </script>
-  </body>
+      const current = lines[line];
+      rendered[line] = current.slice(0, char + 1);
+      char += 1;
+      render();
+
+      if (char >= current.length) {
+        if (line === 1 || line === 2) {
+          redactedLines.add(line);
+          render();
+        }
+        line += 1;
+        char = 0;
+        setTimeout(typeNext, line === 2 || line === 3 ? 500 : 280);
+        return;
+      }
+
+      setTimeout(typeNext, 38);
+    }
+
+    typeNext();
+  </script>
+</body>
+
 </html>
