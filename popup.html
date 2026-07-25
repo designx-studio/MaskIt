@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Maskit</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+
+<body>
+  <div class="popup">
+    <header>
+      <h1>Maskit</h1>
+      <span id="status-badge" class="badge">Active</span>
+    </header>
+
+    <!-- Traffic light status indicator -->
+    <div class="tl-row">
+      <div class="tl-dot loading" id="tl-dot"></div>
+      <span id="tl-label" class="tl-label">Checking…</span>
+      <button id="pause-btn" class="btn-pause" disabled>⏸ Pause</button>
+    </div>
+
+    <label class="row">
+      <span>Protection</span>
+      <input type="checkbox" id="enabled-toggle" />
+    </label>
+
+    <button id="exclude-btn" class="btn-exclude">✕ Exclude this page</button>
+
+    <div class="stats">
+      <div class="stat">
+        <div id="stat-total" class="stat-value">0</div>
+        <div class="stat-label">Total redactions</div>
+      </div>
+      <div class="stat">
+        <div id="stat-paste" class="stat-value">0</div>
+        <div class="stat-label">Paste</div>
+      </div>
+      <div class="stat">
+        <div id="stat-copy" class="stat-value">0</div>
+        <div class="stat-label">Copy</div>
+      </div>
+      <div class="stat">
+        <div id="stat-typing" class="stat-value">0</div>
+        <div class="stat-label">Typing</div>
+      </div>
+    </div>
+
+    <p id="site-status" class="site-status"></p>
+
+    <p class="privacy-note">
+      Local processing only. Maskit helps reduce accidental exposure — it does not
+      guarantee protection. No clipboard logs or page content are stored or uploaded.
+    </p>
+
+    <div class="mcp-status">
+      <span class="mcp-dot"></span> MCP Server: use shared config for desktop integration
+    </div>
+
+    <div class="actions">
+      <a href="options.html" target="_blank">Settings</a>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+  <script src="popup.js"></script>
+</body>
+
+</html>

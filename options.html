@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>Maskit Settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Maskit</h1>
+      <p>Helps reduce accidental exposure of sensitive customer data. Local processing only.</p>
+      <p class="trust-note">Maskit does not guarantee protection. It never uploads page content or clipboard text.</p>
+    </header>
+
+    <section class="card">
+      <h2>Protection</h2>
+      <div id="row-enabled"></div>
+      <div id="row-scanPaste"></div>
+      <div id="row-scanCopy"></div>
+      <div id="row-scanTyping"></div>
+      <div id="row-reviewBeforeRedact"></div>
+      <div id="row-pauseAutoResume"></div>
+      <div class="field" id="pause-secs-wrap" style="padding:10px 0 4px;border-bottom:1px solid #252933;">
+        <label for="pause-auto-resume-secs" style="font-weight:600;">Auto-resume after (seconds)</label>
+        <input type="number" id="pause-auto-resume-secs" min="5" max="300" value="30"
+          style="width:90px;margin-top:8px;" />
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Redaction format</h2>
+      <div class="field">
+        <label for="redact-format">Replacement style</label>
+        <select id="redact-format">
+          <option value="tagged">Tagged — [EMAIL_REDACTED]</option>
+          <option value="stars">Stars — ***</option>
+          <option value="custom">Custom text</option>
+        </select>
+      </div>
+      <div class="field" id="custom-redact-wrap">
+        <label for="custom-redact-text">Custom replacement</label>
+        <input type="text" id="custom-redact-text" placeholder="[REDACTED]" />
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Site list</h2>
+      <div class="field">
+        <label for="site-list-mode">Mode</label>
+        <select id="site-list-mode">
+          <option value="all">All sites</option>
+          <option value="allowlist">Allowlist only</option>
+          <option value="blocklist">Blocklist</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="site-list">Sites (one per line)</label>
+        <textarea id="site-list" rows="4" placeholder="chatgpt.com&#10;*.google.com"></textarea>
+        <p class="hint">Applies only on supported sites: ChatGPT and Gmail.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Detection rules</h2>
+      <div id="builtin-rules"></div>
+    </section>
+
+    <section class="card">
+      <h2>Custom rules</h2>
+      <div id="custom-rules-list"></div>
+      <div class="custom-rule-form">
+        <input type="text" id="custom-rule-name" placeholder="Rule name" />
+        <input type="text" id="custom-rule-pattern" placeholder="Regex pattern" />
+        <button type="button" id="add-custom-rule">Add rule</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Statistics</h2>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div id="stats-total" class="stat-num">0</div>
+          <div class="stat-label">Total redactions</div>
+        </div>
+        <div class="stat-box">
+          <div id="stats-paste" class="stat-num">0</div>
+          <div class="stat-label">Paste</div>
+        </div>
+        <div class="stat-box">
+          <div id="stats-copy" class="stat-num">0</div>
+          <div class="stat-label">Copy</div>
+        </div>
+        <div class="stat-box">
+          <div id="stats-typing" class="stat-num">0</div>
+          <div class="stat-label">Typing</div>
+        </div>
+      </div>
+      <div id="stats-by-type" class="stats-by-type"></div>
+      <button type="button" id="reset-stats" class="btn-secondary">Reset stats</button>
+    </section>
+
+    <section class="card">
+      <h2>Import / Export</h2>
+      <div class="import-export">
+        <button type="button" id="export-settings" class="btn-secondary">Export settings</button>
+        <label class="btn-secondary file-btn">
+          Import settings
+          <input type="file" id="import-settings" accept="application/json" hidden />
+        </label>
+      </div>
+      <p class="hint">Shortcuts: <strong>Alt+Shift+M</strong> — toggle protection &nbsp;·&nbsp;
+        <strong>Alt+Shift+P</strong> — pause temporarily.</p>
+    </section>
+
+    <section class="card">
+      <h2>Shared Config (MCP Server)</h2>
+      <p class="hint">Export or import the shared config used by the MCP server and desktop integrations.</p>
+      <div class="import-export">
+        <button type="button" id="export-shared-config" class="btn-secondary">Export shared config</button>
+        <label class="btn-secondary file-btn">
+          Import shared config
+          <input type="file" id="import-shared-config" accept="application/json" hidden />
+        </label>
+      </div>
+    </section>
+
+    <p id="save-status" class="save-status"></p>
+  </div>
+
+  <script src="settings.js"></script>
+  <script src="options.js"></script>
+</body>
+
+</html>

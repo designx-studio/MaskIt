@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Maskit">
+  <rect width="128" height="128" rx="28" fill="#141820"/>
+  <path d="M64 24 92 38v24c0 18-12 34-28 42-16-8-28-24-28-42V38Z" fill="#00b894"/>
+  <path d="M64 24 92 38v24c0 18-12 34-28 42V24Z" fill="#00a383" opacity="0.55"/>
+  <path
+    fill="#ffffff"
+    d="M44 78V50l12 18 12-18v28h10V46H70L58 64 46 46H34v32z"
+  />
+</svg>

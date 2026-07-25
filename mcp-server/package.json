@@ -1,0 +1,13 @@
+{
+    "name": "maskit-mcp-server",
+    "version": "1.0.0",
+    "description": "Maskit MCP server for Claude Desktop and IDEs",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "test": "node test.js"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.0.0"
+    }
+}

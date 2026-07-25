@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Maskit Privacy Policy</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #0f1115;
+        color: #e8eaed;
+        line-height: 1.6;
+      }
+      main {
+        max-width: 760px;
+        margin: 40px auto;
+        padding: 0 20px 60px;
+      }
+      h1, h2 { color: #fff; }
+      a { color: #00b894; }
+      .muted { color: #9aa4b2; }
+      .callout {
+        background: #171a21;
+        border: 1px solid #252933;
+        border-radius: 12px;
+        padding: 16px;
+        margin: 20px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Maskit Privacy Policy</h1>
+      <p class="muted">Last updated: June 29, 2026</p>
+
+      <div class="callout">
+        <strong>Local processing only.</strong> Maskit helps reduce accidental exposure of
+        sensitive data. It does not guarantee protection. All detection happens in your
+        browser. We do not collect, transmit, or sell your page content or clipboard data.
+      </div>
+
+      <h2>Supported sites</h2>
+      <p>
+        Maskit currently runs only on ChatGPT and Gmail. It does not inject into other
+        websites unless permissions are expanded in a future release.
+      </p>
+
+      <h2>What Maskit accesses</h2>
+      <ul>
+        <li>Text you paste, copy, or type on supported pages while the extension is active</li>
+        <li>Your extension settings (toggles, site filters, custom regex rules)</li>
+        <li>Aggregate redaction counters stored locally</li>
+        <li>The hostname of the current tab to apply site allow/block lists</li>
+      </ul>
+
+      <h2>What Maskit does not do</h2>
+      <ul>
+        <li>Send page content, clipboard text, or detected values to external servers</li>
+        <li>Store raw matched text, clipboard logs, or redaction history</li>
+        <li>Track browsing history for advertising</li>
+        <li>Read the clipboard outside paste/copy events you trigger</li>
+      </ul>
+
+      <h2>Data storage</h2>
+      <p>
+        Settings sync through <code>chrome.storage.sync</code> via your Google account.
+        Only configuration is synced — never matched content.
+      </p>
+      <p>
+        Statistics (total counts by type and source) are stored in
+        <code>chrome.storage.local</code> on your device. You can reset stats anytime.
+      </p>
+
+      <h2>Clipboard behavior</h2>
+      <p>
+        Maskit only inspects clipboard text during paste or copy events inside supported
+        editors. It does not run background clipboard monitoring.
+      </p>
+
+      <h2>Custom regex rules</h2>
+      <p>
+        Rules you create are stored in your settings and executed locally. Maskit rejects
+        overly long or potentially unsafe regex patterns.
+      </p>
+
+      <h2>Permissions</h2>
+      <ul>
+        <li><strong>storage</strong> — save settings and local counters</li>
+        <li><strong>host permissions</strong> — run only on ChatGPT and Gmail</li>
+      </ul>
+
+      <h2>Contact</h2>
+      <p>
+        For privacy questions, contact the extension publisher through the Chrome Web Store
+        listing support channel.
+      </p>
+    </main>
+  </body>
+</html>

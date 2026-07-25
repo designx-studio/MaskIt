@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Maskit Demo</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .demo-wrap {
+        width: min(920px, 100%);
+      }
+
+      .demo-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .replay {
+        cursor: pointer;
+        color: var(--accent);
+        background: none;
+        border: none;
+        font: inherit;
+      }
+
+      .scene {
+        display: grid;
+        grid-template-columns: 1fr 280px;
+        gap: 16px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px;
+      }
+
+      .panel h2 {
+        margin: 0 0 12px;
+        font-size: 16px;
+      }
+
+      .log {
+        font-family: Consolas, monospace;
+        font-size: 13px;
+        color: var(--muted);
+        min-height: 220px;
+      }
+
+      .log strong {
+        color: var(--text);
+      }
+
+      .status-on {
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      .status-off {
+        color: #888;
+      }
+
+      @media (max-width: 800px) {
+        .scene {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="demo-wrap">
+      <div class="demo-toolbar">
+        <span>Maskit product demo — auto-playing</span>
+        <button class="replay" id="replay">Replay</button>
+      </div>
+
+      <div class="scene">
+        <div class="demo-card">
+          <div class="demo-top">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+          <div class="demo-screen" style="min-height: 380px">
+            <div class="demo-label">mail.google.com — compose</div>
+            <div id="demo-input" class="demo-input" style="min-height: 180px"></div>
+            <div id="demo-toast" class="demo-toast">Maskit: sanitized 1 sensitive item(s)</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Extension state</h2>
+          <div class="log" id="log"></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="footer" style="text-align: center; margin-top: 20px">
+      <a href="index.html">Back to landing page</a>
+    </p>
+
+    <script>
+      const script = [
+        { delay: 400, log: "Badge: <span class='status-on'>ON</span> on Gmail" },
+        { delay: 900, type: "Hi team,\n\nCustomer email is " },
+        { delay: 700, type: "jane@corp.co.ke" },
+        { delay: 500, redact: "jane@corp.co.ke", replacement: "[EMAIL_REDACTED]" },
+        { delay: 300, log: "Detected <strong>EMAIL</strong> while typing" },
+        { delay: 500, toast: true },
+        { delay: 1200, type: "\n\nThanks" },
+        { delay: 1800, reset: true }
+      ];
+
+      const input = document.getElementById("demo-input");
+      const toast = document.getElementById("demo-toast");
+      const log = document.getElementById("log");
+      let text = "";
+
+      function render() {
+        input.textContent = text;
+      }
+
+      function addLog(message) {
+        const row = document.createElement("div");
+        row.style.marginBottom = "8px";
+        row.innerHTML = message;
+        log.prepend(row);
+      }
+
+      function runStep(index) {
+        if (index >= script.length) {
+          runStep(0);
+          return;
+        }
+
+        const step = script[index];
+
+        setTimeout(() => {
+          if (step.reset) {
+            text = "";
+            log.innerHTML = "";
+            toast.classList.remove("show");
+            render();
+            runStep(index + 1);
+            return;
+          }
+
+          if (step.log) addLog(step.log);
+          if (step.type) {
+            text += step.type;
+            render();
+          }
+          if (step.redact) {
+            text = text.replace(step.redact, step.replacement);
+            render();
+          }
+          if (step.toast) toast.classList.add("show");
+
+          runStep(index + 1);
+        }, step.delay);
+      }
+
+      document.getElementById("replay").addEventListener("click", () => {
+        text = "";
+        log.innerHTML = "";
+        toast.classList.remove("show");
+        render();
+        runStep(0);
+      });
+
+      runStep(0);
+    </script>
+  </body>
+</html>

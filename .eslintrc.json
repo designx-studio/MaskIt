@@ -1,0 +1,41 @@
+{
+    "env": {
+        "browser": true,
+        "node": true,
+        "es2022": true
+    },
+    "parserOptions": {
+        "ecmaVersion": 2022
+    },
+    "rules": {
+        "no-unused-vars": [
+            "warn",
+            {
+                "argsIgnorePattern": "^_"
+            }
+        ],
+        "no-undef": "error",
+        "no-redeclare": "error",
+        "no-eval": "error",
+        "no-implied-eval": "error",
+        "no-new-func": "error",
+        "no-script-url": "error",
+        "no-caller": "error",
+        "no-return-assign": "error",
+        "eqeqeq": [
+            "error",
+            "always"
+        ],
+        "no-var": "warn",
+        "prefer-const": "warn",
+        "no-throw-literal": "error"
+    },
+    "ignorePatterns": [
+        "node_modules/",
+        "dist/",
+        "mcp-server/node_modules/",
+        "website/",
+        "build-docs/",
+        ".github/"
+    ]
+}

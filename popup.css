@@ -1,0 +1,207 @@
+body {
+  margin: 0;
+  width: 300px;
+  background: #0f1115;
+  color: #fff;
+  font-family: Arial, sans-serif;
+}
+
+.popup {
+  padding: 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #00b894;
+  color: #001;
+}
+
+.badge.off {
+  background: #444;
+  color: #ccc;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #252933;
+  margin-bottom: 12px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stat {
+  background: #171a21;
+  border: 1px solid #252933;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.stat-label {
+  color: #9aa4b2;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.site-status {
+  color: #9aa4b2;
+  font-size: 12px;
+  margin: 12px 0 0;
+}
+
+.privacy-note {
+  color: #9aa4b2;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 12px 0 0;
+}
+
+.actions {
+  margin-top: 14px;
+}
+
+.actions a {
+  color: #00b894;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+/* ── Traffic light row ─────────────────────────────────────────────────── */
+.tl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #252933;
+  margin-bottom: 2px;
+}
+
+.tl-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: box-shadow 0.35s ease;
+}
+
+.tl-dot.green {
+  background: #00b894;
+  box-shadow: 0 0 0 3px rgba(0, 184, 148, 0.2);
+}
+
+.tl-dot.amber {
+  background: #f6b93b;
+  box-shadow: 0 0 0 3px rgba(246, 185, 59, 0.2);
+}
+
+.tl-dot.red {
+  background: #e55039;
+  box-shadow: 0 0 0 3px rgba(229, 80, 57, 0.2);
+}
+
+.tl-dot.loading {
+  background: #444;
+}
+
+.tl-label {
+  flex: 1;
+  font-size: 13px;
+  color: #9aa4b2;
+}
+
+/* ── Pause button ──────────────────────────────────────────────────────── */
+.btn-pause {
+  background: rgba(246, 185, 59, 0.08);
+  border: 1px solid rgba(246, 185, 59, 0.28);
+  border-radius: 7px;
+  color: #f6b93b;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+
+.btn-pause:hover:not(:disabled) {
+  background: rgba(246, 185, 59, 0.18);
+}
+
+.btn-pause:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+/* ── Exclude button ────────────────────────────────────────────────────── */
+.btn-exclude {
+  width: 100%;
+  background: transparent;
+  border: 1px solid #2e3340;
+  border-radius: 8px;
+  color: #e55039;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 6px;
+  margin-bottom: 10px;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: inherit;
+  text-align: center;
+}
+
+.btn-exclude:hover:not(:disabled) {
+  background: rgba(229, 80, 57, 0.08);
+  border-color: rgba(229, 80, 57, 0.38);
+}
+
+.btn-exclude:disabled {
+  color: #9aa4b2;
+  cursor: default;
+  border-color: #252933;
+}
+
+/* ── MCP status ────────────────────────────────────────────────────────── */
+.mcp-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #9aa4b2;
+  padding: 8px 0 0;
+  margin-top: 8px;
+  border-top: 1px solid #252933;
+}
+
+.mcp-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00b894;
+  flex-shrink: 0;
+}
