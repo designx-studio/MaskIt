@@ -5,7 +5,6 @@ const { execSync } = require("child_process");
 
 const root = path.resolve(__dirname, "..");
 const distDir = path.join(root, "dist");
-const outZip = path.join(distDir, "maskit-extension.zip");
 
 const includePaths = [
   "manifest.json",
@@ -15,6 +14,7 @@ const includePaths = [
   "editors.js",
   "content.js",
   "background.js",
+  "ai-intercept.js",
   "popup.html",
   "popup.css",
   "popup.js",
@@ -22,7 +22,6 @@ const includePaths = [
   "options.css",
   "options.js",
   "privacy-policy.html",
-  "SECURITY.md",
   "icons/icon16.png",
   "icons/icon48.png",
   "icons/icon128.png",
@@ -33,17 +32,15 @@ const includeDirs = [
   "mcp-server"
 ];
 
-const stagingDir = path.join(distDir, "maskit-extension");
-
 function rmrf(target) {
   if (fs.existsSync(target)) {
     fs.rmSync(target, { recursive: true, force: true });
   }
 }
 
-function copyFile(relPath) {
+function copyFile(relPath, destDir) {
   const src = path.join(root, relPath);
-  const dest = path.join(stagingDir, relPath);
+  const dest = path.join(destDir, relPath);
 
   if (!fs.existsSync(src)) {
     throw new Error(`Missing required file: ${relPath}`);
@@ -53,17 +50,17 @@ function copyFile(relPath) {
   fs.copyFileSync(src, dest);
 }
 
-function copyDir(relDir) {
+function copyDir(relDir, destDir) {
   const srcDir = path.join(root, relDir);
-  const destDir = path.join(stagingDir, relDir);
+  const destDirFull = path.join(destDir, relDir);
 
   if (!fs.existsSync(srcDir)) return;
 
-  fs.mkdirSync(destDir, { recursive: true });
+  fs.mkdirSync(destDirFull, { recursive: true });
   const entries = fs.readdirSync(srcDir, { withFileTypes: true });
   for (const entry of entries) {
     const srcPath = path.join(srcDir, entry.name);
-    const destPath = path.join(destDir, entry.name);
+    const destPath = path.join(destDirFull, entry.name);
     if (entry.isDirectory()) {
       fs.cpSync(srcPath, destPath, { recursive: true });
     } else {
@@ -72,13 +69,7 @@ function copyDir(relDir) {
   }
 }
 
-function createZip() {
-  rmrf(distDir);
-  fs.mkdirSync(stagingDir, { recursive: true });
-
-  includePaths.forEach(copyFile);
-  includeDirs.forEach(copyDir);
-
+function createZip(stagingDir, outZip) {
   if (process.platform === "win32") {
     execSync(
       `powershell -NoProfile -Command "Compress-Archive -Path '${stagingDir}\\*' -DestinationPath '${outZip}' -Force"`,
@@ -87,10 +78,70 @@ function createZip() {
   } else {
     execSync(`cd "${stagingDir}" && zip -r "${outZip}" .`, { stdio: "inherit" });
   }
-
-  const sizeKb = Math.round(fs.statSync(outZip).size / 1024);
-  console.log(`\nChrome Web Store package ready: ${outZip} (${sizeKb} KB)`);
-  console.log("Upload this zip at https://chrome.google.com/webstore/devconsole");
 }
 
-createZip();
+function buildPackage(name, manifestModifier) {
+  const stagingDir = path.join(distDir, `maskit-${name}`);
+  const outZip = path.join(distDir, `maskit-${name}.zip`);
+
+  rmrf(stagingDir);
+  fs.mkdirSync(stagingDir, { recursive: true });
+
+  // Copy all files
+  includePaths.forEach((p) => copyFile(p, stagingDir));
+  includeDirs.forEach((d) => copyDir(d, stagingDir));
+
+  // Apply manifest modifier if provided
+  if (manifestModifier) {
+    const manifestPath = path.join(stagingDir, "manifest.json");
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    manifestModifier(manifest);
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+  }
+
+  // Create zip
+  createZip(stagingDir, outZip);
+
+  const sizeKb = Math.round(fs.statSync(outZip).size / 1024);
+  console.log(`  ${name}: ${outZip} (${sizeKb} KB)`);
+
+  // Clean up staging dir
+  rmrf(stagingDir);
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────
+
+rmrf(distDir);
+fs.mkdirSync(distDir, { recursive: true });
+
+console.log("\nBuilding Maskit packages...\n");
+
+// 1. Chrome (default manifest)
+buildPackage("chrome", null);
+
+// 2. Edge (same as Chrome — Chromium-based)
+buildPackage("edge", null);
+
+// 3. Opera (same as Chrome — Chromium-based)
+buildPackage("opera", null);
+
+// 4. Firefox (MV3 with gecko settings)
+buildPackage("firefox", (manifest) => {
+  // Firefox needs gecko ID and strict_min_version
+  manifest.browser_specific_settings = {
+    gecko: {
+      id: "maskit@maskit.local",
+      strict_min_version: "109.0"
+    }
+  };
+  // Firefox uses browser.* API — no changes needed since chrome.* works as alias
+});
+
+// Also create the legacy combined zip for backward compatibility
+buildPackage("extension", null);
+
+console.log("\nAll packages built in dist/");
+console.log("Chrome:      Upload to https://chrome.google.com/webstore/devconsole");
+console.log("Edge:        Upload to https://partner.microsoft.com/dashboard/microsoftedge");
+console.log("Firefox:     Upload to https://addons.mozilla.org/developers/addon");
+console.log("Opera:       Upload to https://addons.opera.com/developers/addons");
