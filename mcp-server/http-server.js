@@ -1,22 +1,43 @@
 #!/usr/bin/env node
 /**
  * Maskit HTTP Server
- * Local HTTP server for custom integrations (CI/CD, custom apps, scripts).
+ * Serves the website and provides API endpoints for custom integrations.
  * Starts on localhost:8765 by default.
  *
- * Endpoints:
+ * Website: GET /           — Landing page
+ *          GET /styles.css — Styles
+ *          GET /demo.html  — Demo page
+ *
+ * API:
  *   POST /scan      — scan text for sensitive data
  *   POST /redact    — scan and redact text
  *   POST /policy    — evaluate policy for text
  *   GET  /status    — engine status
  *   GET  /rules     — list active rules
+ *   GET  /health    — health check
  */
 
 const http = require("http");
+const fs = require("fs");
+const path = require("path");
 const engine = require("../engine/index");
 const config = require("./config");
 
 const PORT = parseInt(process.env.MASKIT_PORT, 10) || 8765;
+const WEBSITE_DIR = path.resolve(__dirname, "..", "website");
+const ROOT_DIR = path.resolve(__dirname, "..");
+
+const MIME_TYPES = {
+    ".html": "text/html",
+    ".css": "text/css",
+    ".js": "application/javascript",
+    ".json": "application/json",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".md": "text/markdown"
+};
 
 function parseBody(req) {
     return new Promise((resolve, reject) => {
@@ -38,33 +59,51 @@ function sendJson(res, data, status) {
     res.end(JSON.stringify(data, null, 2));
 }
 
+function serveFile(res, filePath) {
+    try {
+        const content = fs.readFileSync(filePath);
+        const ext = path.extname(filePath);
+        const mime = MIME_TYPES[ext] || "application/octet-stream";
+        res.writeHead(200, { "Content-Type": mime });
+        res.end(content);
+    } catch {
+        res.writeHead(404, { "Content-Type": "text/plain" });
+        res.end("Not found");
+    }
+}
+
 const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
+    const pathname = url.pathname;
 
     try {
-        // GET / — API documentation
-        if (req.method === "GET" && url.pathname === "/") {
-            return sendJson(res, {
-                name: "Maskit HTTP Server",
-                version: engine.getStatus().version,
-                endpoints: {
-                    "POST /scan": "Scan text for sensitive data",
-                    "POST /redact": "Scan and redact sensitive data",
-                    "POST /policy": "Evaluate text against policy",
-                    "GET /status": "Engine status and config",
-                    "GET /rules": "List active rules",
-                    "GET /health": "Health check"
-                },
-                usage: {
-                    scan: { method: "POST", url: "/scan", body: { text: "your text here" } },
-                    redact: { method: "POST", url: "/redact", body: { text: "your text here", format: "tagged|stars|custom" } },
-                    policy: { method: "POST", url: "/policy", body: { text: "your text here" } }
-                }
-            });
+        // ── Static file serving (website) ───────────────────────────────
+
+        // GET / → website/index.html
+        if (req.method === "GET" && pathname === "/") {
+            return serveFile(res, path.join(WEBSITE_DIR, "index.html"));
         }
 
+        // GET /styles.css → website/styles.css
+        if (req.method === "GET" && pathname === "/styles.css") {
+            return serveFile(res, path.join(WEBSITE_DIR, "styles.css"));
+        }
+
+        // GET /demo.html → website/demo.html
+        if (req.method === "GET" && pathname === "/demo.html") {
+            return serveFile(res, path.join(WEBSITE_DIR, "demo.html"));
+        }
+
+        // GET /icons/* → icons/*
+        if (req.method === "GET" && pathname.startsWith("/icons/")) {
+            const iconPath = path.join(ROOT_DIR, pathname);
+            return serveFile(res, iconPath);
+        }
+
+        // ── API endpoints ───────────────────────────────────────────────
+
         // GET /health
-        if (req.method === "GET" && url.pathname === "/health") {
+        if (req.method === "GET" && pathname === "/health") {
             const engineStatus = engine.getStatus();
             return sendJson(res, {
                 status: "ok",
@@ -75,7 +114,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         // POST /scan
-        if (req.method === "POST" && url.pathname === "/scan") {
+        if (req.method === "POST" && pathname === "/scan") {
             const body = await parseBody(req);
             if (!body.text) {
                 return sendJson(res, { error: "text is required" }, 400);
@@ -86,7 +125,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         // POST /redact
-        if (req.method === "POST" && url.pathname === "/redact") {
+        if (req.method === "POST" && pathname === "/redact") {
             const body = await parseBody(req);
             if (!body.text) {
                 return sendJson(res, { error: "text is required" }, 400);
@@ -103,7 +142,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         // POST /policy
-        if (req.method === "POST" && url.pathname === "/policy") {
+        if (req.method === "POST" && pathname === "/policy") {
             const body = await parseBody(req);
             if (!body.text) {
                 return sendJson(res, { error: "text is required" }, 400);
@@ -114,7 +153,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         // GET /status
-        if (req.method === "GET" && url.pathname === "/status") {
+        if (req.method === "GET" && pathname === "/status") {
             const engineStatus = engine.getStatus();
             return sendJson(res, {
                 version: engineStatus.version,
@@ -126,14 +165,15 @@ const server = http.createServer(async (req, res) => {
         }
 
         // GET /rules
-        if (req.method === "GET" && url.pathname === "/rules") {
+        if (req.method === "GET" && pathname === "/rules") {
             const settings = config.readConfig();
             const rules = engine.getRules(settings);
             return sendJson(res, rules);
         }
 
         // 404
-        sendJson(res, { error: "Not found" }, 404);
+        res.writeHead(404, { "Content-Type": "text/plain" });
+        res.end("Not found");
 
     } catch (err) {
         sendJson(res, { error: err.message }, 500);
@@ -141,6 +181,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-    console.log("Maskit HTTP server running on http://127.0.0.1:" + PORT);
-    console.log("Endpoints: POST /scan, POST /redact, POST /policy, GET /status, GET /rules");
+    console.log("Maskit server running on http://127.0.0.1:" + PORT);
+    console.log("Website: http://127.0.0.1:" + PORT + "/");
+    console.log("API: POST /scan, POST /redact, POST /policy, GET /status, GET /rules");
 });
