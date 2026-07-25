@@ -1,7 +1,7 @@
 importScripts("settings.js");
 
-const BADGE_ON_COLOR     = "#00b894";
-const BADGE_OFF_COLOR    = "#5f6368";
+const BADGE_ON_COLOR = "#00b894";
+const BADGE_OFF_COLOR = "#5f6368";
 const BADGE_PAUSED_COLOR = "#f6b93b";
 
 // ── Pause state (chrome.storage.session — clears on browser restart) ──────
@@ -64,7 +64,7 @@ function recordRedactions(counts, source) {
     const added = Object.values(counts).reduce((sum, count) => sum + count, 0);
     stats.totalRedactions += added;
     stats.bySource = stats.bySource || { paste: 0, copy: 0, typing: 0 };
-    stats.byType   = stats.byType   || {};
+    stats.byType = stats.byType || {};
     stats.bySource[source] = (stats.bySource[source] || 0) + added;
     Object.entries(counts).forEach(([type, count]) => {
       stats.byType[type] = (stats.byType[type] || 0) + count;
@@ -81,7 +81,7 @@ function getPageStatus(settings, url) {
     return { active: false, hostname: "" };
   }
   const hostname = new URL(url).hostname;
-  const active   = settings.enabled !== false && isSiteAllowed(settings, hostname);
+  const active = settings.enabled !== false && isSiteAllowed(settings, hostname);
   return { active, hostname };
 }
 
@@ -89,15 +89,15 @@ function applyBadge(tabId, active, paused) {
   let text, color, title;
 
   if (paused && active) {
-    text  = "PSE";
+    text = "PSE";
     color = BADGE_PAUSED_COLOR;
     title = "Maskit — paused (data passing through)";
   } else if (active) {
-    text  = "ON";
+    text = "ON";
     color = BADGE_ON_COLOR;
     title = "Maskit — protecting this page";
   } else {
-    text  = "OFF";
+    text = "OFF";
     color = BADGE_OFF_COLOR;
     title = "Maskit — off on this page";
   }
@@ -229,6 +229,20 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 });
+
+// ── Context menus ───────────────────────────────────────────────────────
+
+try {
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === "maskit-scan-selection" && info.selectionText && tab && tab.id) {
+      // Send selected text to content script for scanning
+      chrome.tabs.sendMessage(tab.id, {
+        type: "SCAN_SELECTION",
+        text: info.selectionText
+      }, () => { void chrome.runtime.lastError; });
+    }
+  });
+} catch { }
 
 // ── Keyboard commands ─────────────────────────────────────────────────────
 

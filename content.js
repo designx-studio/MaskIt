@@ -912,6 +912,26 @@ function _maskitInit() {
 
   try {
     chrome.runtime.onMessage.addListener((message) => {
+      if (message.type === "SCAN_SELECTION" && message.text) {
+        const findings = detectSensitiveData(message.text, currentSettings);
+        if (findings.length) {
+          const sanitized = sanitizeText(message.text, findings, currentSettings);
+          // Replace selected text with redacted version
+          try {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+              const range = sel.getRangeAt(0);
+              range.deleteContents();
+              range.insertNode(document.createTextNode(sanitized));
+              sel.removeAllRanges();
+            }
+          } catch { }
+          recordStats(findings, "contextMenu");
+          showMaskitPopup(findings);
+        }
+        return;
+      }
+
       if (message.type !== "PAUSE_STATE_CHANGED") return;
       isPaused = !!message.paused;
       updateTrafficLight();

@@ -159,6 +159,7 @@
 
     // Watch for AI sidebar/panel elements being injected into the page
     const AI_SELECTORS = [
+        // Edge Copilot
         "[data-testid='copilot-sidebar']",
         "[class*='ai-sidebar']",
         "[class*='copilot']",
@@ -166,7 +167,25 @@
         "[id*='copilot']",
         "[id*='ai-panel']",
         "[class*='ask-ai']",
-        "[class*='ai-assistant']"
+        "[class*='ai-assistant']",
+        // Edge sidebar
+        "[class*='edge-sidebar']",
+        "[id*='bing-sidebar']",
+        "[id*='edge-copilot']",
+        // Opera Aria
+        "[class*='aria-chat']",
+        "[id*='opera-ai']",
+        "[class*='opera-ai']",
+        // Arc AI
+        "[class*='arc-ai']",
+        "[id*='arc-ai']",
+        // Firefox AI
+        "[class*='firefox-ai']",
+        "[id*='firefox-ai']",
+        // Generic AI panel
+        "[role='complementary'][aria-label*='AI']",
+        "[role='complementary'][aria-label*='Copilot']",
+        "[role='complementary'][aria-label*='Assistant']"
     ];
 
     function checkForAISidebar(mutations) {

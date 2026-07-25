@@ -1,10 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Maskit",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Helps reduce accidental exposure of sensitive data on supported sites. Local processing only.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "maskit@maskit.local",
+      "strict_min_version": "109.0"
+    }
+  },
   "permissions": [
-    "storage"
+    "storage",
+    "contextMenus"
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
@@ -51,6 +58,15 @@
       "description": "Pause Maskit temporarily"
     }
   },
+  "context_menus": [
+    {
+      "id": "maskit-scan-selection",
+      "title": "Maskit: Scan & Redact Selection",
+      "contexts": [
+        "selection"
+      ]
+    }
+  ],
   "content_scripts": [
     {
       "matches": [
