@@ -42,6 +42,38 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
 
     try {
+        // GET / — API documentation
+        if (req.method === "GET" && url.pathname === "/") {
+            return sendJson(res, {
+                name: "Maskit HTTP Server",
+                version: engine.getStatus().version,
+                endpoints: {
+                    "POST /scan": "Scan text for sensitive data",
+                    "POST /redact": "Scan and redact sensitive data",
+                    "POST /policy": "Evaluate text against policy",
+                    "GET /status": "Engine status and config",
+                    "GET /rules": "List active rules",
+                    "GET /health": "Health check"
+                },
+                usage: {
+                    scan: { method: "POST", url: "/scan", body: { text: "your text here" } },
+                    redact: { method: "POST", url: "/redact", body: { text: "your text here", format: "tagged|stars|custom" } },
+                    policy: { method: "POST", url: "/policy", body: { text: "your text here" } }
+                }
+            });
+        }
+
+        // GET /health
+        if (req.method === "GET" && url.pathname === "/health") {
+            const engineStatus = engine.getStatus();
+            return sendJson(res, {
+                status: "ok",
+                version: engineStatus.version,
+                uptime: Math.round(process.uptime()),
+                timestamp: new Date().toISOString()
+            });
+        }
+
         // POST /scan
         if (req.method === "POST" && url.pathname === "/scan") {
             const body = await parseBody(req);
