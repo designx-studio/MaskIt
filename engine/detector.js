@@ -9,7 +9,10 @@ const {
     SEVERITY_DEFAULTS,
     SEVERITY_WEIGHTS,
     validateCustomRegexPattern,
-    limitScanText
+    limitScanText,
+    selectPolicy,
+    getPolicyAction,
+    createAuditEvent
 } = require("./settings");
 
 // ── Severity levels ─────────────────────────────────────────────────────────
@@ -315,36 +318,111 @@ function sanitizeText(text, findings, settings) {
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
+function applyPolicyToFindings(findings, context, settings) {
+    const policy = selectPolicy(context, settings);
+    const results = [];
+
+    findings.forEach(function (f) {
+        const typeBase = f.type.replace(/^CUSTOM:/, "");
+        const action = getPolicyAction(policy, typeBase);
+        results.push({
+            finding: f,
+            action: action,
+            format: (policy[typeBase] && policy[typeBase].format) || undefined
+        });
+    });
+
+    return results;
+}
+
 function scanText(text, settings) {
     const mergedSettings = Object.assign({}, require("./settings").MASKIT_DEFAULTS, settings || {});
+    const context = (settings && settings._context) || {};
     const findings = detectSensitiveData(text, mergedSettings);
     const riskScore = calculateRiskScore(findings, mergedSettings);
     const riskLevel = getRiskLevel(riskScore);
-    const redactedText = sanitizeText(text, findings, mergedSettings);
-    const matchedRules = findings.map((f) => f.type);
 
-    return { findings, redactedText, riskScore, riskLevel, matchedRules };
+    // Apply role-based policy to determine actions per finding
+    const policyDecisions = applyPolicyToFindings(findings, context, settings);
+    const policy = selectPolicy(context, settings);
+
+    // Filter out "allow" decisions — only redact/block items
+    const actionableFindings = policyDecisions
+        .filter(function (d) { return d.action !== "allow"; })
+        .map(function (d) { return d.finding; });
+
+    const redactedText = sanitizeText(text, actionableFindings, mergedSettings);
+    const matchedRules = findings.map(function (f) { return f.type; });
+
+    // Generate audit events for each finding
+    const events = policyDecisions.map(function (d) {
+        return createAuditEvent({
+            type: d.finding.type,
+            severity: d.finding.severity,
+            source: context.source || "unknown",
+            app: context.app || context.domain || "unknown",
+            action: d.action === "allow" ? "allowed" : (d.action === "block" ? "blocked" : "redacted"),
+            riskScore: riskScore,
+            matchedRule: d.finding.ruleName || d.finding.type,
+            policyApplied: context.policyName || "default",
+            value: d.finding.value
+        });
+    });
+
+    return {
+        findings: actionableFindings,
+        allFindings: findings,
+        policyDecisions: policyDecisions,
+        redactedText: redactedText,
+        riskScore: riskScore,
+        riskLevel: riskLevel,
+        matchedRules: matchedRules,
+        events: events
+    };
 }
 
 function redactText(text, settings) {
     const mergedSettings = Object.assign({}, require("./settings").MASKIT_DEFAULTS, settings || {});
+    const context = (settings && settings._context) || {};
     const findings = detectSensitiveData(text, mergedSettings);
-    const redactedText = sanitizeText(text, findings, mergedSettings);
 
-    return { redactedText, findings };
+    // Apply policy
+    const policyDecisions = applyPolicyToFindings(findings, context, settings);
+    const actionableFindings = policyDecisions
+        .filter(function (d) { return d.action !== "allow"; })
+        .map(function (d) { return d.finding; });
+
+    const redactedText = sanitizeText(text, actionableFindings, mergedSettings);
+
+    return { redactedText, findings: actionableFindings, allFindings: findings };
 }
 
 function evaluatePolicy(text, settings) {
     const result = scanText(text, settings);
-    const hasFindings = result.findings.length > 0;
+    const hasFindings = result.policyDecisions && result.policyDecisions.length > 0;
+    const blocked = result.policyDecisions
+        ? result.policyDecisions.filter(function (d) { return d.action === "block"; })
+        : [];
+    const allowed = result.policyDecisions
+        ? result.policyDecisions.filter(function (d) { return d.action === "allow"; })
+        : [];
+    const redacted = result.policyDecisions
+        ? result.policyDecisions.filter(function (d) { return d.action === "redact"; })
+        : [];
 
     return {
-        allowed: !hasFindings || (settings && settings.reviewBeforeRedact),
+        allowed: blocked.length === 0,
         findings: result.findings,
+        allFindings: result.allFindings,
+        policyDecisions: result.policyDecisions,
         riskScore: result.riskScore,
         riskLevel: result.riskLevel,
+        blocked: blocked.length,
+        allowedByPolicy: allowed.length,
+        redacted: redacted.length,
         reason: hasFindings
-            ? "Found " + result.findings.length + " sensitive item(s)"
+            ? "Found " + result.allFindings.length + " sensitive item(s): " +
+            blocked.length + " blocked, " + redacted.length + " redacted, " + allowed.length + " allowed"
             : "No sensitive data detected"
     };
 }
@@ -382,7 +460,7 @@ function updateRules(newCustomRules, settings) {
 
 function getStatus() {
     return {
-        version: "1.0.0",
+        version: "2.4.0",
         engineReady: true,
         rulesEnabled: Object.keys(patterns).length + API_KEY_PATTERNS.length
     };

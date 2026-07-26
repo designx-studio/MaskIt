@@ -4,6 +4,36 @@ All notable changes to Maskit will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.4.0] - 2026-07-26
+
+### Added
+- **Structured Audit Log** — Event-based schema replacing stat counters. Each redaction/block/allow creates a structured event with type, severity, source, app, action, riskScore, timestamp, and policyApplied
+- **Role-Based Policies** — Per-app/context policy overrides. Set different rules for ChatGPT, Claude Desktop, Gmail, local AI, etc. (allow/redact/block per data type)
+- **Safe Unmasking** — Deterministic token generation for auditable unmasking. Show original values for 30s with full audit trail. No raw values stored
+- **Config Sync (Browser ↔ MCP)** — Export/import settings between browser extension and MCP server via JSON files
+- **Response Scanning (MCP)** — New `scan_response` tool scans AI responses for leaked credentials and reconstructed secrets
+- **AI Killswitch (Phase 5)** — Enterprise admin control to disable all AI tools. Supports indefinite, time-limited, and schedule-based restrictions. Enforced in browser extension (paste/typing blocked), MCP server (tools return error), with custom admin messages
+- **Killswitch Exemptions** — Per-user/group exemptions from killswitch restrictions (Phase 5.3 foundation)
+- **Audit Log UI** — Filterable table in Options page with type/action filters, CSV export, and configurable retention
+- **Policy Editor UI** — Visual editor for role-based policies with per-data-type action selectors (allow/redact/block)
+- **MCP Server `get_audit_log` tool** — API surface for future central audit sync
+- **133 automated tests** (83 engine + 32 extension + 18 MCP) — up from 102
+
+### Changed
+- Engine version bumped to 2.4.0
+- `scanText()` now returns `events`, `policyDecisions`, `allFindings` alongside existing fields
+- `evaluatePolicy()` now returns `blocked`, `redacted`, `allowedByPolicy` counts
+- `redactText()` now applies policy decisions (allow items are not redacted)
+- MCP server now has 8 tools (was 6): added `scan_response` and `get_audit_log`
+- Options page now includes Audit Log, Role-Based Policies, and Config Sync sections
+- Background script manages audit log storage with automatic pruning
+
+### Architecture
+- Added `KILLSWITCH_DEFAULTS`, `isAIToolsAllowed()`, `parseTime()`, `isUserExempt()` to engine settings
+- Added `AUDIT_LOG_DEFAULTS`, `createAuditEvent()`, `hashSensitive()`, `pruneAuditLog()` to engine settings
+- Added `MASKIT_POLICY_DEFAULTS`, `selectPolicy()`, `getPolicyAction()` to engine settings
+- Killswitch enforcement added to `content.js` (paste/beforeinput handlers) and MCP server
+
 ## [2.3.0] - 2026-07-25
 
 ### Added

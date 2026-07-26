@@ -25,7 +25,18 @@ const {
     validateCustomRegexPattern,
     isSiteAllowed,
     maskPreview,
-    hostnameMatches
+    hostnameMatches,
+    createAuditEvent,
+    hashSensitive,
+    pruneAuditLog,
+    selectPolicy,
+    getPolicyAction,
+    AUDIT_LOG_DEFAULTS,
+    MASKIT_POLICY_DEFAULTS,
+    KILLSWITCH_DEFAULTS,
+    isAIToolsAllowed,
+    parseTime,
+    isUserExempt
 } = require("./index");
 
 const allEnabled = Object.assign({}, MASKIT_DEFAULTS);
@@ -52,7 +63,7 @@ console.log("\nMaskit shared engine tests\n");
 test("detects email addresses", () => {
     const result = scanText("Reach me at john@example.com today", allEnabled);
     assert.ok(result.findings.some((f) => f.type === "EMAIL"));
-    assert.ok(result.redactedText.includes("[EMAIL_REDACTED]"));
+    assert.ok(result.redactedText.includes("***"));
 });
 
 test("detects Kenyan phone numbers", () => {
@@ -387,6 +398,284 @@ test("disabled rules are not detected", () => {
     const settings = Object.assign({}, allEnabled, { EMAIL: false });
     const result = scanText("john@example.com", settings);
     assert.strictEqual(result.findings.filter((f) => f.type === "EMAIL").length, 0);
+});
+
+// ── Phase 2: Audit Log ────────────────────────────────────────────────────
+
+test("createAuditEvent returns structured event", () => {
+    const evt = createAuditEvent({
+        type: "EMAIL",
+        severity: "medium",
+        source: "paste",
+        app: "chatgpt.com",
+        action: "redacted",
+        riskScore: 10,
+        matchedRule: "EMAIL",
+        policyApplied: "default",
+        value: "john@example.com"
+    });
+    assert.ok(evt.id.startsWith("evt_"));
+    assert.strictEqual(evt.type, "EMAIL");
+    assert.strictEqual(evt.severity, "medium");
+    assert.strictEqual(evt.source, "paste");
+    assert.strictEqual(evt.app, "chatgpt.com");
+    assert.strictEqual(evt.action, "redacted");
+    assert.strictEqual(evt.riskScore, 10);
+    assert.ok(typeof evt.timestamp === "number");
+    assert.ok(evt.unmaskToken !== null);
+    assert.strictEqual(evt.unmaskedAt, null);
+});
+
+test("createAuditEvent defaults for missing fields", () => {
+    const evt = createAuditEvent({});
+    assert.strictEqual(evt.type, "UNKNOWN");
+    assert.strictEqual(evt.severity, "medium");
+    assert.strictEqual(evt.source, "unknown");
+    assert.strictEqual(evt.action, "redacted");
+});
+
+test("hashSensitive produces deterministic tokens", () => {
+    const hash1 = hashSensitive("sk-abc123secret");
+    const hash2 = hashSensitive("sk-abc123secret");
+    const hash3 = hashSensitive("sk-different-key");
+    assert.strictEqual(hash1, hash2, "Same input should produce same hash");
+    assert.notStrictEqual(hash1, hash3, "Different input should produce different hash");
+    assert.ok(hash1.length === 16, "Hash should be 16 hex chars");
+});
+
+test("pruneAuditLog removes old events", () => {
+    const oldEvent = { timestamp: Date.now() - 40 * 24 * 60 * 60 * 1000, type: "EMAIL" };
+    const newEvent = { timestamp: Date.now() - 1 * 24 * 60 * 60 * 1000, type: "API_KEY" };
+    const pruned = pruneAuditLog([oldEvent, newEvent], 30);
+    assert.strictEqual(pruned.length, 1);
+    assert.strictEqual(pruned[0].type, "API_KEY");
+});
+
+test("pruneAuditLog keeps all events within retention", () => {
+    const events = [
+        { timestamp: Date.now() - 10 * 24 * 60 * 60 * 1000, type: "EMAIL" },
+        { timestamp: Date.now() - 20 * 24 * 60 * 60 * 1000, type: "API_KEY" }
+    ];
+    const pruned = pruneAuditLog(events, 30);
+    assert.strictEqual(pruned.length, 2);
+});
+
+test("scanText returns events array", () => {
+    const result = scanText("john@example.com", allEnabled);
+    assert.ok(Array.isArray(result.events));
+    assert.ok(result.events.length > 0);
+    assert.ok(result.events[0].id);
+    assert.ok(result.events[0].timestamp);
+    assert.strictEqual(result.events[0].type, "EMAIL");
+});
+
+test("scanText returns policyDecisions", () => {
+    const result = scanText("john@example.com", allEnabled);
+    assert.ok(Array.isArray(result.policyDecisions));
+    assert.ok(result.policyDecisions.length > 0);
+    assert.ok(result.policyDecisions[0].finding);
+    assert.ok(result.policyDecisions[0].action);
+});
+
+// ── Phase 2: Role-Based Policies ──────────────────────────────────────────
+
+test("selectPolicy returns default policy", () => {
+    const policy = selectPolicy({}, allEnabled);
+    assert.ok(policy.EMAIL);
+    assert.strictEqual(policy.EMAIL.action, "redact");
+});
+
+test("selectPolicy returns app-specific policy", () => {
+    const settings = Object.assign({}, allEnabled, {
+        policies: {
+            "default": { EMAIL: { action: "redact" } },
+            "chatgpt.com": { EMAIL: { action: "block" } }
+        }
+    });
+    const policy = selectPolicy({ app: "chatgpt.com" }, settings);
+    assert.strictEqual(policy.EMAIL.action, "block");
+});
+
+test("selectPolicy falls back to default for unknown app", () => {
+    const settings = Object.assign({}, allEnabled, {
+        policies: {
+            "default": { EMAIL: { action: "redact" } },
+            "chatgpt.com": { EMAIL: { action: "block" } }
+        }
+    });
+    const policy = selectPolicy({ app: "unknown-app" }, settings);
+    assert.strictEqual(policy.EMAIL.action, "redact");
+});
+
+test("getPolicyAction returns correct action", () => {
+    const policy = { EMAIL: { action: "allow" }, API_KEY: { action: "block" } };
+    assert.strictEqual(getPolicyAction(policy, "EMAIL"), "allow");
+    assert.strictEqual(getPolicyAction(policy, "API_KEY"), "block");
+    assert.strictEqual(getPolicyAction(policy, "SSN"), "redact"); // default
+});
+
+test("scanText with allow policy skips redaction", () => {
+    const settings = Object.assign({}, allEnabled, {
+        policies: {
+            "default": { EMAIL: { action: "allow" } }
+        }
+    });
+    const result = scanText("john@example.com", settings);
+    // findings should be empty since EMAIL is allowed
+    assert.strictEqual(result.findings.length, 0);
+    // but allFindings should still have the detection
+    assert.ok(result.allFindings.length > 0);
+    // redactedText should be unchanged
+    assert.ok(result.redactedText.includes("john@example.com"));
+});
+
+test("scanText with block policy blocks item", () => {
+    const settings = Object.assign({}, allEnabled, {
+        policies: {
+            "default": { EMAIL: { action: "block" } }
+        }
+    });
+    const result = scanText("john@example.com", settings);
+    // Block means the finding is still shown (actionable)
+    assert.ok(result.findings.length > 0);
+    // Policy decision should be block
+    assert.ok(result.policyDecisions.some(function (d) { return d.action === "block"; }));
+});
+
+test("evaluatePolicy returns policy breakdown", () => {
+    const result = evaluatePolicy("john@example.com and 123-45-6789", allEnabled);
+    assert.ok(typeof result.blocked === "number");
+    assert.ok(typeof result.redacted === "number");
+    assert.ok(typeof result.allowedByPolicy === "number");
+    assert.ok(typeof result.allFindings === "object");
+});
+
+test("evaluatePolicy with mixed policies", () => {
+    const settings = Object.assign({}, allEnabled, {
+        policies: {
+            "default": {
+                EMAIL: { action: "allow" },
+                SSN: { action: "block" }
+            }
+        }
+    });
+    const result = evaluatePolicy("john@example.com and 123-45-6789", settings);
+    assert.strictEqual(result.allowedByPolicy, 1); // EMAIL allowed
+    assert.strictEqual(result.blocked, 1); // SSN blocked
+});
+
+// ── Phase 2: Policy defaults ──────────────────────────────────────────────
+
+test("MASKIT_POLICY_DEFAULTS has default policy", () => {
+    assert.ok(MASKIT_POLICY_DEFAULTS.policies["default"]);
+    assert.strictEqual(MASKIT_POLICY_DEFAULTS.activePolicy, "default");
+});
+
+test("AUDIT_LOG_DEFAULTS has expected fields", () => {
+    assert.ok(Array.isArray(AUDIT_LOG_DEFAULTS.events));
+    assert.strictEqual(AUDIT_LOG_DEFAULTS.retentionDays, 30);
+});
+
+// ── Phase 5: Killswitch ──────────────────────────────────────────────────
+
+test("KILLSWITCH_DEFAULTS has expected structure", () => {
+    assert.strictEqual(KILLSWITCH_DEFAULTS.enabled, false);
+    assert.ok(typeof KILLSWITCH_DEFAULTS.message === "string");
+    assert.strictEqual(KILLSWITCH_DEFAULTS.duration, null);
+    assert.ok(Array.isArray(KILLSWITCH_DEFAULTS.exemptions));
+    assert.strictEqual(KILLSWITCH_DEFAULTS.schedule, null);
+});
+
+test("isAIToolsAllowed returns allowed when killswitch disabled", () => {
+    const result = isAIToolsAllowed({ enabled: false });
+    assert.strictEqual(result.allowed, true);
+});
+
+test("isAIToolsAllowed blocks indefinite killswitch", () => {
+    const result = isAIToolsAllowed({ enabled: true, message: "Blocked by admin" });
+    assert.strictEqual(result.allowed, false);
+    assert.ok(result.reason.includes("Blocked by admin"));
+});
+
+test("isAIToolsAllowed blocks time-limited killswitch before expiry", () => {
+    const futureDate = new Date(Date.now() + 3600000).toISOString(); // 1 hour from now
+    const result = isAIToolsAllowed({ enabled: true, duration: futureDate });
+    assert.strictEqual(result.allowed, false);
+});
+
+test("isAIToolsAllowed allows expired time-limited killswitch", () => {
+    const pastDate = new Date(Date.now() - 3600000).toISOString(); // 1 hour ago
+    const result = isAIToolsAllowed({ enabled: true, duration: pastDate });
+    assert.strictEqual(result.allowed, true);
+});
+
+test("isAIToolsAllowed blocks during schedule (weekday 10:00, disabled 09:00-17:00)", () => {
+    // Create a Wednesday at 10:00 AM
+    const wednesday = new Date(2026, 6, 29, 10, 0); // Wed Jul 29 2026
+    const result = isAIToolsAllowed({
+        enabled: true,
+        schedule: { disable: "09:00", enable: "17:00", daysOfWeek: [1, 2, 3, 4, 5] }
+    }, wednesday);
+    assert.strictEqual(result.allowed, false);
+});
+
+test("isAIToolsAllowed allows outside schedule (weekday 18:00, disabled 09:00-17:00)", () => {
+    const wednesday = new Date(2026, 6, 29, 18, 0); // Wed Jul 29 2026 18:00
+    const result = isAIToolsAllowed({
+        enabled: true,
+        schedule: { disable: "09:00", enable: "17:00", daysOfWeek: [1, 2, 3, 4, 5] }
+    }, wednesday);
+    assert.strictEqual(result.allowed, true);
+});
+
+test("isAIToolsAllowed allows on non-restricted day", () => {
+    const sunday = new Date(2026, 6, 26, 10, 0); // Sun Jul 26 2026
+    const result = isAIToolsAllowed({
+        enabled: true,
+        schedule: { disable: "09:00", enable: "17:00", daysOfWeek: [1, 2, 3, 4, 5] }
+    }, sunday);
+    assert.strictEqual(result.allowed, true);
+});
+
+test("isAIToolsAllowed returns allowed when no killswitch config", () => {
+    const result = isAIToolsAllowed(null);
+    assert.strictEqual(result.allowed, true);
+});
+
+test("parseTime parses valid time strings", () => {
+    assert.strictEqual(parseTime("09:00"), 540);
+    assert.strictEqual(parseTime("17:30"), 1050);
+    assert.strictEqual(parseTime("00:00"), 0);
+    assert.strictEqual(parseTime("23:59"), 1439);
+});
+
+test("parseTime returns null for invalid inputs", () => {
+    assert.strictEqual(parseTime(null), null);
+    assert.strictEqual(parseTime(""), null);
+    assert.strictEqual(parseTime("invalid"), null);
+    assert.strictEqual(parseTime("25:00"), null);
+    assert.strictEqual(parseTime("12:60"), null);
+});
+
+test("isUserExempt returns false for null identity", () => {
+    assert.strictEqual(isUserExempt({ exemptions: [] }, null), false);
+});
+
+test("isUserExempt returns true for exempt user", () => {
+    const ks = {
+        exemptions: [
+            { type: "user", identifier: "alice@company.com" },
+            { type: "group", identifier: "security-team" }
+        ]
+    };
+    assert.strictEqual(isUserExempt(ks, "alice@company.com"), true);
+});
+
+test("isUserExempt returns false for non-exempt user", () => {
+    const ks = {
+        exemptions: [{ type: "user", identifier: "alice@company.com" }]
+    };
+    assert.strictEqual(isUserExempt(ks, "bob@company.com"), false);
 });
 
 console.log("\n" + passed + " passed, " + failed + " failed\n");

@@ -5,39 +5,39 @@ let currentHostname = "";
 // ── Traffic light helpers ─────────────────────────────────────────────────
 
 function getTLState(enabled, siteAllowed, paused) {
-  if (!enabled || !siteAllowed) return { color: "red",   label: "Stopped" };
-  if (paused)                   return { color: "amber", label: "Paused"  };
-  return                               { color: "green", label: "Active"  };
+  if (!enabled || !siteAllowed) return { color: "red", label: "Stopped" };
+  if (paused) return { color: "amber", label: "Paused" };
+  return { color: "green", label: "Active" };
 }
 
 function updateTrafficLightUI() {
-  const enabled     = currentPopupSettings.enabled !== false;
+  const enabled = currentPopupSettings.enabled !== false;
   const siteAllowed = isSiteAllowed(currentPopupSettings, currentHostname);
   const state = getTLState(enabled, siteAllowed, currentPaused);
 
-  const dot      = document.getElementById("tl-dot");
-  const label    = document.getElementById("tl-label");
+  const dot = document.getElementById("tl-dot");
+  const label = document.getElementById("tl-label");
   const pauseBtn = document.getElementById("pause-btn");
 
-  dot.className   = "tl-dot " + state.color;
+  dot.className = "tl-dot " + state.color;
   label.textContent = state.label;
 
   const canPause = enabled && siteAllowed;
-  pauseBtn.disabled    = !canPause;
+  pauseBtn.disabled = !canPause;
   pauseBtn.textContent = currentPaused ? "▶ Resume" : "⏸ Pause";
 }
 
 // ── Badge ─────────────────────────────────────────────────────────────────
 
 function updateBadge(enabled, siteAllowed) {
-  const badge  = document.getElementById("status-badge");
+  const badge = document.getElementById("status-badge");
   const active = enabled && siteAllowed;
   badge.textContent = active ? "Active" : "Off";
   badge.classList.toggle("off", !active);
 }
 
 function updateSiteStatus(hostname, settings) {
-  const el      = document.getElementById("site-status");
+  const el = document.getElementById("site-status");
   const allowed = isSiteAllowed(settings, hostname);
 
   if (!settings.enabled) {
@@ -54,26 +54,42 @@ function updateSiteStatus(hostname, settings) {
 // ── Exclude button state ──────────────────────────────────────────────────
 
 function updateExcludeBtn() {
-  const btn         = document.getElementById("exclude-btn");
+  const btn = document.getElementById("exclude-btn");
   const siteAllowed = isSiteAllowed(currentPopupSettings, currentHostname);
-  const mode        = currentPopupSettings.siteListMode || "all";
+  const mode = currentPopupSettings.siteListMode || "all";
 
   // Already blocked via blocklist
   const alreadyExcluded = !siteAllowed && mode === "blocklist";
   // No hostname (e.g. settings page)
   const noHost = !currentHostname;
 
-  btn.disabled     = alreadyExcluded || noHost;
-  btn.textContent  = alreadyExcluded ? "✓ Page already excluded" : "✕ Exclude this page";
+  btn.disabled = alreadyExcluded || noHost;
+  btn.textContent = alreadyExcluded ? "✓ Page already excluded" : "✕ Exclude this page";
 }
 
 // ── Full render ───────────────────────────────────────────────────────────
 
 function renderAll() {
-  const enabled     = currentPopupSettings.enabled !== false;
+  const enabled = currentPopupSettings.enabled !== false;
   const siteAllowed = isSiteAllowed(currentPopupSettings, currentHostname);
 
-  document.getElementById("enabled-toggle").checked = enabled;
+  // Update toggle switch
+  const track = document.getElementById("toggle-track");
+  const label = document.getElementById("toggle-label");
+  const sub = document.getElementById("toggle-sub");
+
+  if (enabled) {
+    track.classList.remove("off");
+    label.classList.remove("off");
+    label.textContent = "ON";
+    sub.textContent = siteAllowed ? "Protecting " + currentHostname : "Protection active";
+  } else {
+    track.classList.add("off");
+    label.classList.add("off");
+    label.textContent = "OFF";
+    sub.textContent = "Protection disabled";
+  }
+
   updateBadge(enabled, siteAllowed);
   updateSiteStatus(currentHostname, currentPopupSettings);
   updateTrafficLightUI();
@@ -98,8 +114,8 @@ function loadPopup() {
         renderAll();
 
         // ── Protection toggle ──────────────────────────────────────────
-        document.getElementById("enabled-toggle").addEventListener("change", (e) => {
-          currentPopupSettings.enabled = e.target.checked;
+        document.getElementById("toggle-wrap").addEventListener("click", () => {
+          currentPopupSettings.enabled = !currentPopupSettings.enabled;
           chrome.storage.sync.set({ enabled: currentPopupSettings.enabled }, renderAll);
         });
 
@@ -115,7 +131,6 @@ function loadPopup() {
         document.getElementById("exclude-btn").addEventListener("click", () => {
           if (!currentHostname) return;
           chrome.runtime.sendMessage({ type: "ADD_TO_BLOCKLIST", hostname: currentHostname }, () => {
-            // Update local settings mirror to reflect new blocklist
             if (!currentPopupSettings.siteList) currentPopupSettings.siteList = [];
             if (!currentPopupSettings.siteList.includes(currentHostname)) {
               currentPopupSettings.siteList.push(currentHostname);
@@ -130,10 +145,10 @@ function loadPopup() {
     // Stats (independent of pause state)
     chrome.runtime.sendMessage({ type: "GET_STATS" }, (response) => {
       const stats = response?.stats || MASKIT_STATS_DEFAULTS;
-      document.getElementById("stat-total").textContent  = stats.totalRedactions     || 0;
-      document.getElementById("stat-paste").textContent  = stats.bySource?.paste     || 0;
-      document.getElementById("stat-copy").textContent   = stats.bySource?.copy      || 0;
-      document.getElementById("stat-typing").textContent = stats.bySource?.typing    || 0;
+      document.getElementById("stat-total").textContent = stats.totalRedactions || 0;
+      document.getElementById("stat-paste").textContent = stats.bySource?.paste || 0;
+      document.getElementById("stat-copy").textContent = stats.bySource?.copy || 0;
+      document.getElementById("stat-typing").textContent = stats.bySource?.typing || 0;
     });
   });
 }

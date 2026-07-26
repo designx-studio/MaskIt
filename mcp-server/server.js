@@ -56,6 +56,18 @@ const TOOLS = [
         }
     },
     {
+        name: "scan_response",
+        description: "Scan an AI response for potential credential leaks, reconstructed secrets, or leaked API keys. Use after receiving responses from AI models to detect accidental exposure.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                response: { type: "string", description: "The AI response text to scan for leaked secrets" },
+                app: { type: "string", description: "App context (e.g. 'claude-desktop', 'cursor')" }
+            },
+            required: ["response"]
+        }
+    },
+    {
         name: "get_status",
         description: "Get Maskit engine status and configuration info.",
         inputSchema: {
@@ -96,13 +108,84 @@ const TOOLS = [
             },
             required: ["customRules"]
         }
+    },
+    {
+        name: "get_audit_log",
+        description: "Get the audit log of all redaction and policy events.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                limit: { type: "number", description: "Max events to return (default 100)" },
+                type: { type: "string", description: "Filter by data type (e.g. 'EMAIL', 'API_KEY')" }
+            },
+            required: []
+        }
     }
 ];
 
 // ── Tool handlers ───────────────────────────────────────────────────────────
 
+function checkKillswitch(settings) {
+    const ks = settings.killswitch || { enabled: false };
+    if (!ks.enabled) return null;
+
+    const now = new Date();
+
+    // Check schedule
+    if (ks.schedule) {
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+        const day = now.getDay();
+        const currentMinutes = hour * 60 + minute;
+
+        const disableParts = (ks.schedule.disable || "").split(":");
+        const enableParts = (ks.schedule.enable || "").split(":");
+        const disableTime = disableParts.length === 2 ? parseInt(disableParts[0], 10) * 60 + parseInt(disableParts[1], 10) : null;
+        const enableTime = enableParts.length === 2 ? parseInt(enableParts[0], 10) * 60 + parseInt(enableParts[1], 10) : null;
+        const daysOfWeek = ks.schedule.daysOfWeek || [1, 2, 3, 4, 5];
+
+        if (daysOfWeek.includes(day) && disableTime !== null && enableTime !== null) {
+            let restricted = false;
+            if (disableTime > enableTime) {
+                restricted = currentMinutes >= disableTime || currentMinutes < enableTime;
+            } else {
+                restricted = currentMinutes >= disableTime && currentMinutes < enableTime;
+            }
+            if (restricted) {
+                return { blocked: true, reason: "AI tools disabled by schedule" };
+            }
+        }
+        return null;
+    }
+
+    // Check time-limited
+    if (ks.duration) {
+        if (now < new Date(ks.duration)) {
+            return { blocked: true, reason: ks.message || "AI tools restricted" };
+        }
+        return null;
+    }
+
+    // Indefinite killswitch
+    return { blocked: true, reason: ks.message || "AI tools restricted by administrator" };
+}
+
 function handleScanText(args) {
     const settings = config.getSettingsForApp(args.app);
+    const ksCheck = checkKillswitch(settings);
+    if (ksCheck) {
+        return {
+            content: [{
+                type: "text",
+                text: JSON.stringify({
+                    error: "AI tools are restricted",
+                    message: ksCheck.reason,
+                    blocked: true
+                }, null, 2)
+            }],
+            isError: true
+        };
+    }
     const result = engine.scanText(args.text, settings);
     return {
         content: [{
@@ -114,6 +197,20 @@ function handleScanText(args) {
 
 function handleRedactText(args) {
     const settings = config.getSettingsForApp(args.app);
+    const ksCheck = checkKillswitch(settings);
+    if (ksCheck) {
+        return {
+            content: [{
+                type: "text",
+                text: JSON.stringify({
+                    error: "AI tools are restricted",
+                    message: ksCheck.reason,
+                    blocked: true
+                }, null, 2)
+            }],
+            isError: true
+        };
+    }
     if (args.format) {
         settings.redactFormat = args.format;
     }
@@ -133,6 +230,21 @@ function handleRedactText(args) {
 
 function handleEvaluatePolicy(args) {
     const settings = config.getSettingsForApp(args.app);
+    const ksCheck = checkKillswitch(settings);
+    if (ksCheck) {
+        return {
+            content: [{
+                type: "text",
+                text: JSON.stringify({
+                    error: "AI tools are restricted",
+                    message: ksCheck.reason,
+                    blocked: true,
+                    allowed: false
+                }, null, 2)
+            }],
+            isError: true
+        };
+    }
     const result = engine.evaluatePolicy(args.text, settings);
     return {
         content: [{
@@ -194,12 +306,70 @@ function handleUpdateRules(args) {
     };
 }
 
+function handleScanResponse(args) {
+    const settings = config.getSettingsForApp(args.app);
+    const result = engine.scanText(args.response, settings);
+
+    const hasFindings = result.findings.length > 0;
+    const criticalFindings = result.findings.filter(function (f) {
+        return f.severity === "critical";
+    });
+
+    let recommendation = "ok";
+    if (criticalFindings.length > 0) {
+        recommendation = "warn";
+    } else if (result.riskScore > 50) {
+        recommendation = "warn";
+    } else if (result.riskScore > 25) {
+        recommendation = "review";
+    }
+
+    return {
+        content: [{
+            type: "text",
+            text: JSON.stringify({
+                hasFindings: hasFindings,
+                findings: result.findings,
+                riskScore: result.riskScore,
+                riskLevel: result.riskLevel,
+                recommendation: recommendation,
+                message: hasFindings
+                    ? "Response contains potential secrets: " + result.findings.length + " finding(s). " +
+                    (recommendation === "warn" ? "WARNING: Critical credentials detected — check before copying." : "Review recommended.")
+                    : "No sensitive data detected in response."
+            }, null, 2)
+        }]
+    };
+}
+
+function handleGetAuditLog(args) {
+    const limit = args.limit || 100;
+    const filterType = args.type || null;
+
+    // For MCP server, return a summary since audit log lives on browser
+    // This provides the API surface for future central audit sync
+    const status = engine.getStatus();
+
+    return {
+        content: [{
+            type: "text",
+            text: JSON.stringify({
+                message: "Audit log is stored locally on the browser extension. Use the browser extension Options page to view the full audit log.",
+                engineVersion: status.version,
+                note: "In Phase 5, audit logs will sync to a central backend for enterprise compliance.",
+                filterApplied: filterType || "none",
+                limit: limit
+            }, null, 2)
+        }]
+    };
+}
+
 // ── Server setup ────────────────────────────────────────────────────────────
 
 const server = new Server(
     {
         name: "maskit-mcp-server",
-        version: "1.0.0"
+        version: "2.4.0"
     },
     {
         capabilities: {
@@ -231,8 +401,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 return handleGetStatus();
             case "get_rules":
                 return handleGetRules();
-            case "update_rules":
-                return handleUpdateRules(args || {});
+            case "scan_response":
+                return handleScanResponse(args || {});
+            case "get_audit_log":
+                return handleGetAuditLog(args || {});
             default:
                 return {
                     content: [{ type: "text", text: "Unknown tool: " + name }],

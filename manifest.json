@@ -19,9 +19,11 @@
     "https://mail.google.com/*",
     "https://gemini.google.com/*",
     "https://copilot.microsoft.com/*",
+    "https://*.copilot.cloud.microsoft/*",
     "https://*.perplexity.ai/*",
     "https://*.anthropic.com/*",
-    "https://claude.ai/*"
+    "https://claude.ai/*",
+    "https://copilot.github.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'"
@@ -75,9 +77,11 @@
         "https://mail.google.com/*",
         "https://gemini.google.com/*",
         "https://copilot.microsoft.com/*",
+        "https://*.copilot.cloud.microsoft/*",
         "https://*.perplexity.ai/*",
         "https://*.anthropic.com/*",
-        "https://claude.ai/*"
+        "https://claude.ai/*",
+        "https://copilot.github.com/*"
       ],
       "js": [
         "settings.js",

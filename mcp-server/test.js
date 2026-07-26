@@ -81,7 +81,7 @@ test("config.getSettingsForApp returns base config for no app", () => {
 test("engine.scanText works via MCP server context", () => {
     const result = engine.scanText("Contact john@example.com", config.readConfig());
     assert.ok(result.findings.length > 0);
-    assert.ok(result.redactedText.includes("[EMAIL_REDACTED]"));
+    assert.ok(result.redactedText.includes("***"));
 });
 
 test("engine.evaluatePolicy works via MCP server context", () => {

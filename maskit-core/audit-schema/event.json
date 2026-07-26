@@ -1,0 +1,123 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Maskit Audit Event",
+    "description": "Structured audit event schema used across all Maskit adapters (browser, agent, MCP)",
+    "type": "object",
+    "required": [
+        "id",
+        "timestamp",
+        "type",
+        "severity",
+        "source",
+        "app",
+        "action"
+    ],
+    "properties": {
+        "id": {
+            "type": "string",
+            "description": "Unique event identifier (evt_<timestamp>_<random>)",
+            "pattern": "^evt_"
+        },
+        "timestamp": {
+            "type": "number",
+            "description": "Unix timestamp in milliseconds"
+        },
+        "type": {
+            "type": "string",
+            "description": "Data type detected (EMAIL, PHONE, API_KEY, CARD, SSN, BANK_ACCOUNT, PASSPORT, IP_ADDRESS, MPESA, CUSTOM:<name>)"
+        },
+        "severity": {
+            "type": "string",
+            "enum": [
+                "critical",
+                "high",
+                "medium",
+                "low"
+            ],
+            "description": "Severity level of the finding"
+        },
+        "source": {
+            "type": "string",
+            "enum": [
+                "paste",
+                "copy",
+                "typing",
+                "contextMenu",
+                "clipboard",
+                "terminal",
+                "api"
+            ],
+            "description": "How the data was intercepted"
+        },
+        "app": {
+            "type": "string",
+            "description": "Application or hostname where the event occurred"
+        },
+        "action": {
+            "type": "string",
+            "enum": [
+                "redacted",
+                "blocked",
+                "allowed",
+                "unmasked"
+            ],
+            "description": "Action taken by the policy engine"
+        },
+        "riskScore": {
+            "type": "number",
+            "description": "Aggregate risk score at time of detection (0-100)"
+        },
+        "matchedRule": {
+            "type": "string",
+            "description": "Rule ID that matched (e.g., API_KEY_OPENAI, EMAIL)"
+        },
+        "policyApplied": {
+            "type": "string",
+            "description": "Policy context that was applied (default, chatgpt.com, etc.)"
+        },
+        "unmaskToken": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Deterministic hash token for unmasking (null if not applicable)"
+        },
+        "unmaskedAt": {
+            "type": [
+                "number",
+                "null"
+            ],
+            "description": "Timestamp when value was unmasked (null if never unmasked)"
+        },
+        "unmaskedDuration": {
+            "type": [
+                "number",
+                "null"
+            ],
+            "description": "Duration in ms the value was visible (null if never unmasked)"
+        },
+        "appContext": {
+            "type": "object",
+            "description": "Additional app context (Windows agent only)",
+            "properties": {
+                "processName": {
+                    "type": "string"
+                },
+                "processPath": {
+                    "type": "string"
+                },
+                "aiDetected": {
+                    "type": "boolean"
+                },
+                "aiConfidence": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                },
+                "isLocal": {
+                    "type": "boolean"
+                }
+            }
+        }
+    }
+}

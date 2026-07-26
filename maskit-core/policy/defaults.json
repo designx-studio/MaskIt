@@ -1,0 +1,62 @@
+{
+    "version": "2.4.0",
+    "description": "Default policy actions per data type and severity",
+    "actions": [
+        "allow",
+        "redact",
+        "block"
+    ],
+    "defaults": {
+        "EMAIL": {
+            "action": "redact",
+            "format": "tagged"
+        },
+        "PHONE": {
+            "action": "redact",
+            "format": "tagged"
+        },
+        "API_KEY": {
+            "action": "redact",
+            "format": "tagged"
+        },
+        "CARD": {
+            "action": "block"
+        },
+        "SSN": {
+            "action": "block"
+        },
+        "BANK_ACCOUNT": {
+            "action": "block"
+        },
+        "PASSPORT": {
+            "action": "redact",
+            "format": "tagged"
+        },
+        "IP_ADDRESS": {
+            "action": "redact",
+            "format": "tagged"
+        },
+        "MPESA": {
+            "action": "redact",
+            "format": "tagged"
+        }
+    },
+    "severity": {
+        "API_KEY": "critical",
+        "CARD": "critical",
+        "SSN": "critical",
+        "BANK_ACCOUNT": "critical",
+        "PASSPORT": "high",
+        "IP_ADDRESS": "high",
+        "EMAIL": "medium",
+        "PHONE": "medium",
+        "MPESA": "low",
+        "CUSTOM": "medium"
+    },
+    "severityWeights": {
+        "critical": 50,
+        "high": 25,
+        "medium": 10,
+        "low": 5
+    }
+}

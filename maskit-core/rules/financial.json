@@ -1,0 +1,33 @@
+{
+    "version": "2.4.0",
+    "description": "Financial data detection rules",
+    "rules": [
+        {
+            "id": "CARD",
+            "name": "Credit/debit card numbers",
+            "pattern": "\\b(?:\\d[ -]*?){13,16}\\b",
+            "flags": "g",
+            "type": "financial",
+            "severity": "critical",
+            "validator": "luhn"
+        },
+        {
+            "id": "BANK_ACCOUNT",
+            "name": "IBAN bank account numbers",
+            "pattern": "\\b[A-Z]{2}\\d{2}[A-Z0-9]{11,30}\\b",
+            "flags": "gi",
+            "type": "financial",
+            "severity": "critical",
+            "validator": "bank_account"
+        },
+        {
+            "id": "MPESA",
+            "name": "M-Pesa reference codes",
+            "pattern": "\\b[A-Z0-9]{10}\\b",
+            "flags": "g",
+            "type": "financial",
+            "severity": "low",
+            "validator": "mpesa"
+        }
+    ]
+}

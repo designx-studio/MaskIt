@@ -30,6 +30,19 @@ const {
     MASKIT_DEFAULTS,
     MASKIT_SUPPORTED_SITES,
     MASKIT_STATS_DEFAULTS,
+    AUDIT_LOG_DEFAULTS,
+    createAuditEvent,
+    hashSensitive,
+    pruneAuditLog,
+    POLICY_ACTIONS,
+    MASKIT_POLICY_DEFAULTS,
+    selectPolicy,
+    getPolicyAction,
+    KILLSWITCH_DEFAULTS,
+    isAIToolsAllowed,
+    parseTime,
+    getUserIdentity,
+    isUserExempt,
     REGEX_LIMITS,
     hostnameMatches,
     isSiteAllowed,
@@ -73,6 +86,25 @@ module.exports = {
     SEVERITY_WEIGHTS,
     SEVERITY_LEVELS,
     REGEX_LIMITS,
+
+    // Audit log
+    AUDIT_LOG_DEFAULTS,
+    createAuditEvent,
+    hashSensitive,
+    pruneAuditLog,
+
+    // Role-based policies
+    POLICY_ACTIONS,
+    MASKIT_POLICY_DEFAULTS,
+    selectPolicy,
+    getPolicyAction,
+
+    // Killswitch
+    KILLSWITCH_DEFAULTS,
+    isAIToolsAllowed,
+    parseTime,
+    getUserIdentity,
+    isUserExempt,
 
     // Helpers
     hostnameMatches,

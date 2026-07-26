@@ -392,4 +392,274 @@ document.addEventListener("DOMContentLoaded", () => {
     reader.readAsText(file);
     event.target.value = "";
   });
+
+  // ── Audit Log ────────────────────────────────────────────────────────
+
+  function loadAuditLog() {
+    chrome.runtime.sendMessage({ type: "GET_AUDIT_LOG" }, (response) => {
+      const auditLog = response?.auditLog || { events: [], retentionDays: 30 };
+      renderAuditLog(auditLog.events || []);
+
+      const retentionInput = document.getElementById("audit-retention");
+      if (retentionInput) retentionInput.value = auditLog.retentionDays || 30;
+    });
+  }
+
+  function renderAuditLog(events) {
+    const filterType = document.getElementById("audit-filter-type").value;
+    const filterAction = document.getElementById("audit-filter-action").value;
+
+    let filtered = events;
+    if (filterType) filtered = filtered.filter((e) => e.type === filterType);
+    if (filterAction) filtered = filtered.filter((e) => e.action === filterAction);
+
+    // Show most recent first, limit to 200
+    filtered = filtered.reverse().slice(0, 200);
+
+    const tbody = document.getElementById("audit-log-tbody");
+    const emptyMsg = document.getElementById("audit-empty");
+    const tableWrap = document.getElementById("audit-log-table-wrap");
+
+    if (!filtered.length) {
+      tbody.innerHTML = "";
+      tableWrap.style.display = "none";
+      emptyMsg.style.display = "block";
+      return;
+    }
+
+    tableWrap.style.display = "block";
+    emptyMsg.style.display = "none";
+
+    tbody.innerHTML = filtered.map((e) => {
+      const time = new Date(e.timestamp).toLocaleString();
+      const severityColor = e.severity === "critical" ? "#e55039" :
+        e.severity === "high" ? "#f6b93b" :
+          e.severity === "medium" ? "#00b894" : "#9aa4b2";
+      const actionColor = e.action === "blocked" ? "#e55039" :
+        e.action === "allowed" ? "#9aa4b2" : "#00b894";
+      return `<tr>
+        <td>${escapeHtml(time)}</td>
+        <td>${escapeHtml(e.type)}</td>
+        <td style="color:${severityColor}">${escapeHtml(e.severity)}</td>
+        <td>${escapeHtml(e.source)}</td>
+        <td>${escapeHtml(e.app)}</td>
+        <td style="color:${actionColor}">${escapeHtml(e.action)}</td>
+        <td>${e.riskScore || 0}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  document.getElementById("audit-refresh").addEventListener("click", loadAuditLog);
+
+  document.getElementById("audit-filter-type").addEventListener("change", loadAuditLog);
+  document.getElementById("audit-filter-action").addEventListener("change", loadAuditLog);
+
+  document.getElementById("audit-export-csv").addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "GET_AUDIT_LOG" }, (response) => {
+      const events = response?.auditLog?.events || [];
+      if (!events.length) {
+        showStatus("No events to export.");
+        return;
+      }
+
+      const headers = ["timestamp", "type", "severity", "source", "app", "action", "riskScore", "matchedRule", "policyApplied"];
+      const csvRows = [headers.join(",")];
+
+      events.forEach((e) => {
+        const row = headers.map((h) => {
+          const val = String(e[h] || "");
+          return val.includes(",") || val.includes('"') ? '"' + val.replace(/"/g, '""') + '"' : val;
+        });
+        csvRows.push(row.join(","));
+      });
+
+      const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "maskit-audit-log.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+      showStatus("Audit log exported as CSV.");
+    });
+  });
+
+  document.getElementById("reset-audit-log").addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "RESET_AUDIT_LOG" }, () => {
+      loadAuditLog();
+      showStatus("Audit log reset.");
+    });
+  });
+
+  document.getElementById("audit-retention").addEventListener("blur", () => {
+    const days = parseInt(document.getElementById("audit-retention").value, 10) || 30;
+    chrome.runtime.sendMessage({ type: "SET_AUDIT_RETENTION", retentionDays: days }, () => {
+      showStatus("Retention updated to " + days + " days.");
+    });
+  });
+
+  // ── Role-Based Policies ──────────────────────────────────────────────
+
+  const DATA_TYPES = ["EMAIL", "PHONE", "API_KEY", "CARD", "SSN", "BANK_ACCOUNT", "PASSPORT", "IP_ADDRESS", "MPESA"];
+  const ACTIONS = ["allow", "redact", "block"];
+  let currentPolicies = {};
+  let currentPolicyContext = "default";
+
+  function loadPolicies() {
+    chrome.storage.sync.get({ policies: null }, (items) => {
+      if (items.policies) {
+        currentPolicies = items.policies;
+      } else {
+        // Initialize with default policy
+        currentPolicies = {
+          "default": {
+            EMAIL: { action: "redact" },
+            PHONE: { action: "redact" },
+            API_KEY: { action: "redact" },
+            CARD: { action: "block" },
+            SSN: { action: "block" },
+            BANK_ACCOUNT: { action: "block" },
+            PASSPORT: { action: "redact" },
+            IP_ADDRESS: { action: "redact" },
+            MPESA: { action: "redact" }
+          }
+        };
+      }
+      renderPolicyEditor();
+    });
+  }
+
+  function renderPolicyEditor() {
+    const container = document.getElementById("policy-editor");
+    const policy = currentPolicies[currentPolicyContext] || currentPolicies["default"] || {};
+
+    container.innerHTML = DATA_TYPES.map((type) => {
+      const entry = policy[type] || { action: "redact" };
+      const currentAction = ACTIONS.includes(entry.action) ? entry.action : "redact";
+
+      return `<div class="policy-row">
+        <span class="policy-type">${escapeHtml(type)}</span>
+        <select class="policy-action-select" data-type="${escapeHtml(type)}">
+          ${ACTIONS.map((a) => `<option value="${a}" ${a === currentAction ? "selected" : ""}>${a}</option>`).join("")}
+        </select>
+      </div>`;
+    }).join("");
+  }
+
+  document.getElementById("policy-select").addEventListener("change", (event) => {
+    currentPolicyContext = event.target.value;
+    renderPolicyEditor();
+  });
+
+  document.getElementById("add-policy-context").addEventListener("click", () => {
+    const name = prompt("Enter policy context name (e.g., chatgpt.com, claude-desktop, local):");
+    if (!name || !name.trim()) return;
+
+    const context = name.trim();
+    const select = document.getElementById("policy-select");
+
+    // Check if already exists
+    const existing = select.querySelector(`option[value="${context}"]`);
+    if (existing) {
+      select.value = context;
+      currentPolicyContext = context;
+      renderPolicyEditor();
+      return;
+    }
+
+    // Add option
+    const option = document.createElement("option");
+    option.value = context;
+    option.textContent = context;
+    select.appendChild(option);
+    select.value = context;
+    currentPolicyContext = context;
+
+    // Initialize policy from default
+    if (!currentPolicies[context]) {
+      currentPolicies[context] = JSON.parse(JSON.stringify(currentPolicies["default"] || {}));
+    }
+    renderPolicyEditor();
+  });
+
+  document.getElementById("save-policies").addEventListener("click", () => {
+    // Collect current form state
+    const policy = {};
+    document.querySelectorAll(".policy-action-select").forEach((select) => {
+      const type = select.dataset.type;
+      policy[type] = { action: select.value };
+    });
+
+    currentPolicies[currentPolicyContext] = policy;
+
+    chrome.storage.sync.set({ policies: currentPolicies }, () => {
+      showStatus("Policies saved.");
+    });
+  });
+
+  // ── Config Sync (Browser ↔ MCP) ────────────────────────────────────
+
+  document.getElementById("export-mcp-config").addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "EXPORT_CONFIG" }, (response) => {
+      if (!response || !response.config) {
+        showStatus("Failed to export config.");
+        return;
+      }
+
+      // Also include policies
+      const exportData = Object.assign({}, response.config, {
+        policies: currentPolicies
+      });
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "maskit-config.json";
+      link.click();
+      URL.revokeObjectURL(url);
+      showStatus("MCP config exported.");
+    });
+  });
+
+  document.getElementById("import-mcp-config").addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const imported = JSON.parse(reader.result);
+
+        if (imported.settings) {
+          // Full config format from EXPORT_CONFIG
+          chrome.runtime.sendMessage({ type: "IMPORT_CONFIG", config: imported }, (response) => {
+            if (response && response.ok) {
+              // Also import policies if present
+              if (imported.policies) {
+                currentPolicies = imported.policies;
+                chrome.storage.sync.set({ policies: currentPolicies });
+              }
+              loadSettings();
+              loadPolicies();
+              showStatus("MCP config imported.");
+            } else {
+              showStatus("Import failed: " + (response?.error || "unknown error"));
+            }
+          });
+        } else {
+          showStatus("Invalid MCP config format.");
+        }
+      } catch {
+        showStatus("Invalid MCP config file.");
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+  });
+
+  // ── Load audit log on page load ──────────────────────────────────────
+
+  loadAuditLog();
+  loadPolicies();
 });

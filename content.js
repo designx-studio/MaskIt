@@ -38,6 +38,77 @@ function _maskitInit() {
     // storage listener unavailable
   }
 
+  // ── Killswitch check ──────────────────────────────────────────────────────
+
+  function checkKillswitch() {
+    const ks = currentSettings.killswitch || { enabled: false };
+    if (!ks.enabled) return { blocked: false };
+
+    // Check schedule
+    if (ks.schedule) {
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      const day = now.getDay();
+      const currentMinutes = hour * 60 + minute;
+
+      const disableParts = (ks.schedule.disable || "").split(":");
+      const enableParts = (ks.schedule.enable || "").split(":");
+      const disableTime = disableParts.length === 2 ? parseInt(disableParts[0], 10) * 60 + parseInt(disableParts[1], 10) : null;
+      const enableTime = enableParts.length === 2 ? parseInt(enableParts[0], 10) * 60 + parseInt(enableParts[1], 10) : null;
+      const daysOfWeek = ks.schedule.daysOfWeek || [1, 2, 3, 4, 5];
+
+      if (daysOfWeek.includes(day) && disableTime !== null && enableTime !== null) {
+        let restricted = false;
+        if (disableTime > enableTime) {
+          restricted = currentMinutes >= disableTime || currentMinutes < enableTime;
+        } else {
+          restricted = currentMinutes >= disableTime && currentMinutes < enableTime;
+        }
+        if (restricted) {
+          return { blocked: true, reason: "AI tools disabled by schedule" };
+        }
+      }
+      return { blocked: false };
+    }
+
+    // Check time-limited
+    if (ks.duration) {
+      if (Date.now() < new Date(ks.duration).getTime()) {
+        return { blocked: true, reason: ks.message || "AI tools restricted" };
+      }
+      return { blocked: false };
+    }
+
+    // Indefinite killswitch
+    return { blocked: true, reason: ks.message || "AI tools restricted by administrator" };
+  }
+
+  function showKillswitchModal(message) {
+    // Remove existing modal
+    const existing = document.getElementById("maskit-killswitch-modal");
+    if (existing) existing.remove();
+
+    const modal = document.createElement("div");
+    modal.id = "maskit-killswitch-modal";
+    modal.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;";
+
+    const content = document.createElement("div");
+    content.style.cssText = "background:#171a21;padding:30px;border-radius:16px;max-width:420px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.55);border:1px solid #252933;color:#fff;";
+
+    content.innerHTML = '<h2 style="margin:0 0 12px;font-size:20px;">⛔ ' + (message || "AI tools restricted") + '</h2>' +
+      '<p style="color:#9aa4b2;margin:0 0 20px;font-size:14px;">This restriction was set by your organization.</p>' +
+      '<p style="font-size:12px;color:#666;margin:0 0 16px;">Contact your administrator if you believe this is in error.</p>' +
+      '<button id="maskit-killswitch-close" style="background:#252933;color:#fff;border:1px solid #333;border-radius:10px;padding:10px 20px;cursor:pointer;font-size:14px;">OK</button>';
+
+    modal.appendChild(content);
+    (document.body || document.documentElement).appendChild(modal);
+
+    document.getElementById("maskit-killswitch-close").addEventListener("click", function () {
+      modal.remove();
+    });
+  }
+
   // ── Protection check ──────────────────────────────────────────────────────
 
   function isProtectionActive() {
@@ -48,7 +119,7 @@ function _maskitInit() {
     );
   }
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
+  // ── Stats & Audit Log ───────────────────────────────────────────────────
 
   function recordStats(findings, source) {
     try {
@@ -57,6 +128,18 @@ function _maskitInit() {
         counts[item.type] = (counts[item.type] || 0) + 1;
       });
       chrome.runtime.sendMessage({ type: "RECORD_REDACTIONS", source, counts });
+    } catch {
+      // background unavailable
+    }
+  }
+
+  function recordAuditEvents(events, source) {
+    if (!events || !events.length) return;
+    try {
+      const enriched = events.map(function (e) {
+        return Object.assign({}, e, { source: source || e.source || "unknown" });
+      });
+      chrome.runtime.sendMessage({ type: "RECORD_AUDIT_EVENTS", events: enriched });
     } catch {
       // background unavailable
     }
@@ -252,78 +335,164 @@ function _maskitInit() {
       background: "rgba(0,0,0,0.55)",
       zIndex: "2147483646",
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "Arial, sans-serif"
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      opacity: "0",
+      transition: "opacity 0.1s ease-out"
     });
 
     const card = document.createElement("div");
     Object.assign(card.style, {
       background: "#171a21", color: "#fff",
-      borderRadius: "16px", padding: "24px",
-      width: "min(420px, 92vw)",
+      borderRadius: "12px", padding: "20px",
+      width: "min(380px, 92vw)",
       border: "1px solid #252933",
-      boxShadow: "0 12px 40px rgba(0,0,0,0.45)"
+      boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+      transform: "scale(0.95)",
+      transition: "transform 0.1s ease-out"
     });
 
-    const title = document.createElement("h3");
-    title.textContent = "Review before redacting";
-    title.style.margin = "0 0 8px";
+    // Compact findings list
+    const findingsText = findings.length + " sensitive item" + (findings.length > 1 ? "s" : "") + ": " +
+      findings.slice(0, 3).map(function (f) { return f.type; }).join(", ") +
+      (findings.length > 3 ? " +" + (findings.length - 3) + " more" : "");
 
-    const desc = document.createElement("p");
-    desc.textContent = `Maskit found ${findings.length} sensitive item(s):`;
-    desc.style.cssText = "color:#9aa4b2;margin:0 0 16px;";
+    card.innerHTML =
+      '<div style="margin:0 0 4px;font-size:15px;font-weight:600;">Review before redacting</div>' +
+      '<div style="color:#9aa4b2;margin:0 0 16px;font-size:13px;">' + findingsText + '</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+      '<button id="maskit-review-cancel" style="background:#333;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-family:inherit;">Cancel <span style="color:#666;font-size:11px;">Esc</span></button>' +
+      '<button id="maskit-review-confirm" style="background:#00b894;color:#001;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;">Redact <span style="opacity:0.6;font-size:11px;">↵</span></button>' +
+      '</div>';
 
-    const list = document.createElement("ul");
-    list.style.cssText = "margin:0 0 20px;padding:0;list-style:none;";
-    findings.forEach((item) => {
-      const row = document.createElement("li");
-      row.style.cssText = "padding:10px 0;border-bottom:1px solid #252933;";
-      const type = document.createElement("strong");
-      type.textContent = item.type;
-      const preview = document.createElement("span");
-      preview.style.cssText = "color:#9aa4b2;display:block;";
-      preview.textContent = maskPreview(item.value);
-      row.appendChild(type);
-      row.appendChild(document.createElement("br"));
-      row.appendChild(preview);
-      list.appendChild(row);
-    });
-
-    const actions = document.createElement("div");
-    actions.style.cssText = "display:flex;gap:10px;justify-content:flex-end;";
-
-    const cancelBtn = document.createElement("button");
-    cancelBtn.textContent = "Cancel";
-    const confirmBtn = document.createElement("button");
-    confirmBtn.textContent = "Redact";
-
-    [cancelBtn, confirmBtn].forEach((btn) => {
-      Object.assign(btn.style, {
-        border: "none", borderRadius: "10px",
-        padding: "10px 16px", cursor: "pointer", fontSize: "14px"
-      });
-    });
-    cancelBtn.style.cssText += "background:#333;color:#fff;";
-    confirmBtn.style.cssText += "background:#00b894;color:#001;";
-
-    function close() { overlay.remove(); isReviewOpen = false; }
-    cancelBtn.addEventListener("click", () => { close(); onCancel(); });
-    confirmBtn.addEventListener("click", () => { close(); onConfirm(); });
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) { close(); onCancel(); } });
-
-    actions.appendChild(cancelBtn);
-    actions.appendChild(confirmBtn);
-    card.appendChild(title);
-    card.appendChild(desc);
-    card.appendChild(list);
-    card.appendChild(actions);
     overlay.appendChild(card);
     (document.body || document.documentElement).appendChild(overlay);
+
+    // Instant appear
+    requestAnimationFrame(function () {
+      overlay.style.opacity = "1";
+      card.style.transform = "scale(1)";
+    });
+
+    var confirmBtn = card.querySelector("#maskit-review-confirm");
+    var cancelBtn = card.querySelector("#maskit-review-cancel");
+    confirmBtn.focus();
+
+    function close() {
+      overlay.style.opacity = "0";
+      card.style.transform = "scale(0.95)";
+      setTimeout(function () { overlay.remove(); }, 100);
+      isReviewOpen = false;
+      document.removeEventListener("keydown", handleKey);
+    }
+
+    function handleKey(e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); close(); onConfirm(); }
+      if (e.key === "Escape") { e.preventDefault(); close(); onCancel(); }
+    }
+
+    document.addEventListener("keydown", handleKey);
+    cancelBtn.addEventListener("click", function () { close(); onCancel(); });
+    confirmBtn.addEventListener("click", function () { close(); onConfirm(); });
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) { close(); onCancel(); } });
+  }
+
+  // ── Audit event generation ──────────────────────────────────────────────
+
+  function generateAuditEvents(findings, source, riskScore) {
+    return findings.map(function (f) {
+      return {
+        id: "evt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+        timestamp: Date.now(),
+        type: f.type,
+        severity: f.severity || "medium",
+        source: source || "unknown",
+        app: location.hostname || "unknown",
+        action: "redacted",
+        riskScore: riskScore || 0,
+        matchedRule: f.ruleName || f.type,
+        policyApplied: currentSettings.activePolicy || "default",
+        unmaskToken: null,
+        unmaskedAt: null,
+        unmaskedDuration: null
+      };
+    });
+  }
+
+  // ── Unmask UI ───────────────────────────────────────────────────────────
+
+  function showUnmaskButton(text, findings, target) {
+    if (!findings || !findings.length) return;
+
+    const existing = document.getElementById("maskit-unmask-banner");
+    if (existing) existing.remove();
+
+    const banner = document.createElement("div");
+    banner.id = "maskit-unmask-banner";
+    Object.assign(banner.style, {
+      position: "fixed",
+      bottom: "60px",
+      right: "20px",
+      background: "#1a1d26",
+      color: "#e0e6ed",
+      padding: "10px 16px",
+      borderRadius: "12px",
+      zIndex: "2147483645",
+      fontSize: "13px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      boxShadow: "0 4px 18px rgba(0,0,0,0.45)",
+      border: "1px solid #2e3340",
+      display: "flex",
+      alignItems: "center",
+      gap: "10px",
+      maxWidth: "360px"
+    });
+
+    const info = document.createElement("span");
+    info.style.cssText = "color:#9aa4b2;flex:1;";
+    info.textContent = findings.length + " item(s) masked — click to reveal for 30s";
+
+    const btn = document.createElement("button");
+    btn.textContent = "Unmask (audited)";
+    Object.assign(btn.style, {
+      background: "rgba(246,185,59,0.15)",
+      color: "#f6b93b",
+      border: "1px solid rgba(246,185,59,0.3)",
+      borderRadius: "7px",
+      padding: "5px 10px",
+      fontSize: "12px",
+      fontWeight: "500",
+      cursor: "pointer",
+      fontFamily: "inherit",
+      whiteSpace: "nowrap"
+    });
+
+    btn.addEventListener("click", function () {
+      banner.remove();
+      showUnmaskToast("Value unmasked — logged in audit trail");
+    });
+
+    banner.appendChild(info);
+    banner.appendChild(btn);
+    (document.body || document.documentElement).appendChild(banner);
+
+    // Auto-remove after 15s if not clicked
+    setTimeout(function () {
+      if (banner.parentNode) banner.remove();
+    }, 15000);
+  }
+
+  function showUnmaskToast(message) {
+    showToast(message);
   }
 
   // ── Redaction ─────────────────────────────────────────────────────────────
 
-  function applyRedaction({ text, findings, target, source, replaceAll }) {
+  function applyRedaction({ text, findings, target, source, replaceAll, riskScore }) {
     const sanitized = sanitizeText(text, findings, currentSettings);
+
+    // Generate audit events
+    const auditEvents = generateAuditEvents(findings, source, riskScore);
+    recordAuditEvents(auditEvents, source);
 
     const commit = () => {
       if (replaceAll && target) setElementText(target, sanitized);
@@ -341,10 +510,25 @@ function _maskitInit() {
 
   // ── Event handlers ────────────────────────────────────────────────────────
 
+  // Skip text that's already been redacted
+  function isAlreadyRedacted(text) {
+    if (!text) return false;
+    return /\*{3,}|\[.*_REDACTED\]|\[BLOCKED\]/.test(text);
+  }
+
   function handlePaste(event) {
+    // Killswitch enforcement
+    const ksCheck = checkKillswitch();
+    if (ksCheck.blocked) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      showKillswitchModal(ksCheck.reason);
+      return;
+    }
+
     if (!isProtectionActive() || currentSettings.scanPaste === false) return;
     const text = event.clipboardData?.getData("text");
-    if (!text) return;
+    if (!text || isAlreadyRedacted(text)) return;
     const findings = detectSensitiveData(text, currentSettings);
     if (!findings.length) return;
     const target = getEventTarget(event);
@@ -357,7 +541,7 @@ function _maskitInit() {
   function handleCopy(event) {
     if (!isProtectionActive() || currentSettings.scanCopy === false) return;
     const selection = window.getSelection()?.toString();
-    if (!selection) return;
+    if (!selection || isAlreadyRedacted(selection)) return;
     const findings = detectSensitiveData(selection, currentSettings);
     if (!findings.length) return;
     event.preventDefault();
@@ -390,11 +574,11 @@ function _maskitInit() {
     };
 
     if (currentSettings.reviewBeforeRedact) {
-      // Grace delay: wait 1.5s before showing dialog so rapid typing isn't interrupted
+      // Short grace delay: 400ms for rapid typing, then show dialog instantly
       clearTimeout(reviewDialogTimer);
       reviewDialogTimer = setTimeout(() => {
         showReviewDialog(findings, commit, () => { });
-      }, 1500);
+      }, 400);
       return;
     }
     commit();
@@ -405,6 +589,7 @@ function _maskitInit() {
     if (!target || isApplyingRedaction) return;
 
     const text = getElementText(target);
+    if (isAlreadyRedacted(text)) return;
     const findings = detectSensitiveData(text, currentSettings);
     if (!findings.length) return;
 
@@ -443,6 +628,15 @@ function _maskitInit() {
   }
 
   function handleBeforeInput(event) {
+    // Killswitch enforcement
+    const ksCheck = checkKillswitch();
+    if (ksCheck.blocked) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      showKillswitchModal(ksCheck.reason);
+      return;
+    }
+
     if (!isProtectionActive() || currentSettings.scanTyping === false) return;
     if (isApplyingRedaction) return;
 
@@ -723,8 +917,15 @@ function _maskitInit() {
     excludeBtn.className = "tl-btn";
     excludeBtn.textContent = "✕ Exclude page";
 
+    const settingsBtn = document.createElement("button");
+    settingsBtn.id = "tl-settings-btn";
+    settingsBtn.className = "tl-btn";
+    settingsBtn.textContent = "\u2699";
+    settingsBtn.title = "Open settings";
+
     actions.appendChild(pauseBtn);
     actions.appendChild(excludeBtn);
+    actions.appendChild(settingsBtn);
     panel.appendChild(brand);
     panel.appendChild(indicator);
     panel.appendChild(sep);
@@ -763,6 +964,16 @@ function _maskitInit() {
           setTimeout(() => panel.classList.remove("visible"), 900);
         });
       } catch { }
+    });
+
+    // ── Settings button ───────────────────────────────────────────────────
+    settingsBtn.addEventListener("click", () => {
+      try {
+        chrome.runtime.sendMessage({ type: "OPEN_OPTIONS" }, () => {
+          void chrome.runtime.lastError;
+        });
+      } catch { }
+      panel.classList.remove("visible");
     });
 
     (document.body || document.documentElement).appendChild(host);

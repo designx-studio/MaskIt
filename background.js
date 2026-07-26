@@ -45,7 +45,7 @@ function broadcastPauseState(paused, tabId) {
   });
 }
 
-// ── Statistics ────────────────────────────────────────────────────────────
+// ── Statistics (legacy, kept for backward compat) ────────────────────────
 
 function getStats(callback) {
   chrome.storage.local.get({ stats: MASKIT_STATS_DEFAULTS }, (data) => {
@@ -72,6 +72,68 @@ function recordRedactions(counts, source) {
     saveStats(stats);
     updateActionBadge();
   });
+}
+
+// ── Structured Audit Log ────────────────────────────────────────────────
+
+function getAuditLog(callback) {
+  chrome.storage.local.get({ auditLog: { events: [], retentionDays: 30 } }, (data) => {
+    callback(data.auditLog || { events: [], retentionDays: 30 });
+  });
+}
+
+function saveAuditLog(auditLog) {
+  chrome.storage.local.set({ auditLog });
+}
+
+function recordAuditEvent(event) {
+  if (!event) return;
+  getAuditLog((auditLog) => {
+    auditLog.events.push(event);
+    // Prune old events
+    const retention = auditLog.retentionDays || 30;
+    const cutoff = Date.now() - retention * 24 * 60 * 60 * 1000;
+    auditLog.events = auditLog.events.filter((e) => e.timestamp >= cutoff);
+    saveAuditLog(auditLog);
+  });
+}
+
+function recordAuditEvents(events) {
+  if (!events || !events.length) return;
+  getAuditLog((auditLog) => {
+    auditLog.events = auditLog.events.concat(events);
+    // Prune old events
+    const retention = auditLog.retentionDays || 30;
+    const cutoff = Date.now() - retention * 24 * 60 * 60 * 1000;
+    auditLog.events = auditLog.events.filter((e) => e.timestamp >= cutoff);
+    saveAuditLog(auditLog);
+  });
+}
+
+// ── Unmask tracking ─────────────────────────────────────────────────────
+
+const unmaskStore = {};
+
+function recordUnmask(token, value, durationMs) {
+  getAuditLog((auditLog) => {
+    const evt = auditLog.events.find((e) => e.unmaskToken === token);
+    if (evt) {
+      evt.unmaskedAt = Date.now();
+      evt.unmaskedDuration = durationMs || 30000;
+      saveAuditLog(auditLog);
+    }
+  });
+}
+
+function getUnmaskedValue(token) {
+  return unmaskStore[token] || null;
+}
+
+function setUnmaskedValue(token, value, durationMs) {
+  unmaskStore[token] = value;
+  setTimeout(() => {
+    delete unmaskStore[token];
+  }, durationMs || 30000);
 }
 
 // ── Badge (tri-state) ─────────────────────────────────────────────────────
@@ -174,8 +236,83 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  // ── Audit log ──────────────────────────────────────────────────────────
+
+  if (message.type === "RECORD_AUDIT_EVENTS") {
+    recordAuditEvents(message.events);
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message.type === "GET_AUDIT_LOG") {
+    getAuditLog((auditLog) => sendResponse({ auditLog }));
+    return true;
+  }
+
+  if (message.type === "RESET_AUDIT_LOG") {
+    saveAuditLog({ events: [], retentionDays: 30 });
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message.type === "SET_AUDIT_RETENTION") {
+    getAuditLog((auditLog) => {
+      auditLog.retentionDays = message.retentionDays || 30;
+      saveAuditLog(auditLog);
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+
+  // ── Unmask ─────────────────────────────────────────────────────────────
+
+  if (message.type === "UNMASK_VALUE") {
+    setUnmaskedValue(message.token, message.value, message.durationMs || 30000);
+    recordUnmask(message.token, message.value, message.durationMs || 30000);
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message.type === "GET_UNMASKED_VALUE") {
+    const val = getUnmaskedValue(message.token);
+    sendResponse({ value: val });
+    return true;
+  }
+
+  // ── Config export/import ───────────────────────────────────────────────
+
+  if (message.type === "EXPORT_CONFIG") {
+    chrome.storage.sync.get(MASKIT_DEFAULTS, (settings) => {
+      const exportData = {
+        version: "2.4.0",
+        exportDate: new Date().toISOString(),
+        settings: settings
+      };
+      sendResponse({ config: exportData });
+    });
+    return true;
+  }
+
+  if (message.type === "IMPORT_CONFIG") {
+    if (message.config && message.config.settings) {
+      chrome.storage.sync.set(message.config.settings, () => {
+        updateActionBadge();
+        sendResponse({ ok: true });
+      });
+    } else {
+      sendResponse({ ok: false, error: "Invalid config format" });
+    }
+    return true;
+  }
+
   if (message.type === "UPDATE_BADGE") {
     updateActionBadge();
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message.type === "OPEN_OPTIONS") {
+    chrome.runtime.openOptionsPage();
     sendResponse({ ok: true });
     return true;
   }

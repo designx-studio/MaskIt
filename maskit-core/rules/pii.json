@@ -1,0 +1,51 @@
+{
+    "version": "2.4.0",
+    "description": "Personally Identifiable Information detection rules",
+    "rules": [
+        {
+            "id": "EMAIL",
+            "name": "Email addresses",
+            "pattern": "\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b",
+            "flags": "gi",
+            "type": "pii",
+            "severity": "medium",
+            "validator": "none"
+        },
+        {
+            "id": "PHONE",
+            "name": "Kenyan phone numbers",
+            "pattern": "(\\+254|0)[17]\\d{8}",
+            "flags": "g",
+            "type": "pii",
+            "severity": "medium",
+            "validator": "none"
+        },
+        {
+            "id": "SSN",
+            "name": "US Social Security Numbers",
+            "pattern": "\\b\\d{3}-\\d{2}-\\d{4}\\b",
+            "flags": "g",
+            "type": "pii",
+            "severity": "critical",
+            "validator": "none"
+        },
+        {
+            "id": "PASSPORT",
+            "name": "Passport numbers",
+            "pattern": "\\b[A-Z]{1,2}\\d{6,9}\\b",
+            "flags": "g",
+            "type": "pii",
+            "severity": "high",
+            "validator": "passport"
+        },
+        {
+            "id": "IP_ADDRESS",
+            "name": "IP addresses",
+            "pattern": "\\b(?:(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\b",
+            "flags": "g",
+            "type": "pii",
+            "severity": "high",
+            "validator": "ip_address"
+        }
+    ]
+}

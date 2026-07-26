@@ -1,0 +1,77 @@
+{
+    "version": "2.4.0",
+    "description": "App/context-specific policy overrides",
+    "contexts": {
+        "chatgpt.com": {
+            "EMAIL": {
+                "action": "redact"
+            },
+            "PHONE": {
+                "action": "redact"
+            },
+            "API_KEY": {
+                "action": "redact"
+            },
+            "CARD": {
+                "action": "redact"
+            },
+            "SSN": {
+                "action": "block"
+            },
+            "BANK_ACCOUNT": {
+                "action": "block"
+            }
+        },
+        "claude.ai": {
+            "EMAIL": {
+                "action": "allow"
+            },
+            "PHONE": {
+                "action": "redact"
+            },
+            "API_KEY": {
+                "action": "redact"
+            },
+            "CARD": {
+                "action": "block"
+            },
+            "SSN": {
+                "action": "block"
+            }
+        },
+        "copilot.microsoft.com": {
+            "EMAIL": {
+                "action": "redact"
+            },
+            "PHONE": {
+                "action": "redact"
+            },
+            "API_KEY": {
+                "action": "redact"
+            },
+            "CARD": {
+                "action": "block"
+            },
+            "SSN": {
+                "action": "block"
+            }
+        },
+        "local-ai": {
+            "EMAIL": {
+                "action": "allow"
+            },
+            "PHONE": {
+                "action": "allow"
+            },
+            "API_KEY": {
+                "action": "allow"
+            },
+            "CARD": {
+                "action": "redact"
+            },
+            "SSN": {
+                "action": "redact"
+            }
+        }
+    }
+}
