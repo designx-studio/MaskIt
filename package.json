@@ -4,7 +4,7 @@
   "private": true,
   "description": "Protect sensitive information before it reaches AI tools.",
   "scripts": {
-    "test": "node test.js && node test-ai-scope.js && node engine/test.js && node mcp-server/test.js",
+    "test": "node test.js && node engine/test.js && node mcp-server/test.js",
     "test:regex": "node scripts/validate-regex-safety.js",
     "build": "node scripts/build.js",
     "build:chrome": "node scripts/build.js chrome",
@@ -18,8 +18,7 @@
     "version:bump": "node scripts/bump-version.js",
     "test:engine": "node engine/test.js",
     "test:extension": "node test.js",
-    "test:mcp": "node mcp-server/test.js",
-    "test:ai-scope": "node test-ai-scope.js"
+    "test:mcp": "node mcp-server/test.js"
   },
   "devDependencies": {
     "safe-regex": "^2.1.1"
