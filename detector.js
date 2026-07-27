@@ -7,11 +7,30 @@ const API_KEY_PATTERNS = [
   /\bglpat-[A-Za-z0-9_-]{20,}\b/g,
   /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g,
   /\bAKIA[0-9A-Z]{16}\b/g,
+  /\b(?:aws_secret_access_key|AWS_SECRET_ACCESS_KEY)\s*[=:]\s*["']?[A-Za-z0-9/+=]{40}/gi,
   /\bAIza[0-9A-Za-z_-]{35}\b/g,
+  /\bya29\.[A-Za-z0-9_-]{20,}\b/g,
   /\bnpm_[A-Za-z0-9]{36}\b/g,
   /\bsq0[a-z]{3}-[A-Za-z0-9_-]{22,}\b/g,
   /\bBearer\s+[A-Za-z0-9._\-+/=]{20,}\b/gi,
-  /\b(?:api[_-]?key|apikey|secret[_-]?key|access[_-]?token|auth[_-]?token)\s*[=:]\s*["']?[A-Za-z0-9_\-./+=]{16,}/gi
+  /\b(?:api[_-]?key|apikey|secret[_-]?key|access[_-]?token|auth[_-]?token)\s*[=:]\s*["']?[A-Za-z0-9_\-./+=]{16,}/gi,
+  /\bDefaultEndpointsProtocol=https;AccountName=[A-Za-z0-9]+;AccountKey=[A-Za-z0-9+/=]{44,};/g,
+  /\beyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9\.[A-Za-z0-9._\-+/=]{20,}/g,
+  /\b[a-f0-9]{32}\b(?=\s*;?\s*(?:subscription|key|secret))/gi,
+  /\b(?:do_token_|dop_v1_)[A-Za-z0-9]{20,}\b/g,
+  /\bAC[a-f0-9]{32}\b/g,
+  /\b(?:dd_|datadog_)[A-Za-z0-9]{20,}\b/g,
+  /\bSG\.[A-Za-z0-9_-]{22,}\.[A-Za-z0-9_-]{22,}\b/g,
+  /\b(?:atlassian[-_]token|jira[-_]api[-_]key)\s*[=:]\s*["']?[A-Za-z0-9_\-]{20,}/gi,
+  /\b(?:TF_TOKEN_|terraform[-_]token[-_])[A-Za-z0-9_\-]{10,}\b/g,
+  /\bdckr_pat_[A-Za-z0-9_]{20,}\b/g,
+  /\beyJhbGciOiJSUzI1NiIsImtpZCI6[A-Za-z0-9_-]{20,}/g,
+  /\b(?:CF_|cloudflare[-_]api[-_]token[-_])[A-Za-z0-9_\-]{30,}\b/gi,
+  /\bauth0\|[A-Za-z0-9_\-]{20,}\b/g,
+  /\b(?:FIREBASE_|firebase[-_]api[-_]key[-_])[A-Za-z0-9_\-]{20,}\b/gi,
+  /\b(?:AZDO_|azure[-_]devops[-_]token[-_])[A-Za-z0-9_\-]{20,}\b/gi,
+  /\b(?:private[-_]key|PRIVATE[-_]KEY)\s*[=:]\s*["']?-----BEGIN (?:RSA )?PRIVATE KEY-----/gi,
+  /\b(?:client[-_]secret|CLIENT[-_]SECRET)\s*[=:]\s*["']?[A-Za-z0-9_\-./+=]{20,}/gi
 ];
 
 const patterns = {
@@ -169,4 +188,8 @@ function detectSensitiveData(text, settings) {
   });
 
   return dedupeFindings(findings);
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { detectSensitiveData, dedupeFindings, compileCustomRule, validateFinding, luhnCheck, patterns, API_KEY_PATTERNS };
 }

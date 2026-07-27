@@ -1,290 +1,165 @@
-# Maskit
+# MaskIt
 
 **Prevent accidental data leaks before sensitive text leaves your device.**
 
-Maskit is a local-first privacy layer that detects and redacts sensitive data in real time. It works in ChatGPT, Gmail, and Claude Desktop — catching emails, API keys, credit cards, SSNs, and more before they leave your device.
+MaskIt is a local-first privacy layer for protecting sensitive information before it reaches AI tools. It detects, evaluates, and redacts secrets and personal data locally in the browser, MCP server, and Windows clipboard agent.
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-102%20passing-brightgreen)
-![Version](https://img.shields.io/badge/version-2.3.0-blue)
+![Version](https://img.shields.io/badge/version-2.4.0-blue)
 ![Chrome](https://img.shields.io/badge/Chrome-MV3-yellow)
 
----
-
-## Why Maskit?
-
-Users paste customer data, API keys, secrets, and regulated information into AI tools and email without realizing the risk. Existing solutions are cloud-dependent, enterprise-only, or too broad.
-
-**Maskit solves this by:**
-- Scanning text at paste, copy, and typing time
-- Detecting sensitive patterns locally (no cloud processing)
-- Redacting data before it leaves your device
-- Being invisible when everything is safe
-
-> *"Maskit is a local-first privacy layer that stops sensitive text from leaving your device."*
-
----
-
-## Quick Start
-
-### Chrome Extension
-
-1. Download or clone this repository
-2. Open `chrome://extensions` in Chrome
-3. Enable **Developer mode**
-4. Click **Load unpacked** and select the `maskit-extension` folder
-5. Navigate to ChatGPT or Gmail — Maskit is active automatically
-
-### Claude Desktop (MCP Server)
-
-1. Install dependencies:
-   ```bash
-   cd mcp-server && npm install
-   ```
-
-2. Add to your `claude_desktop_config.json`:
-   ```json
-   {
-     "mcpServers": {
-       "maskit": {
-         "command": "node",
-         "args": ["/path/to/maskit-extension/mcp-server/server.js"]
-       }
-     }
-   }
-   ```
-
-3. Restart Claude Desktop — 6 tools are automatically available
-
----
-
-## What It Detects
-
-| Type | Examples | Severity |
-|------|----------|----------|
-| **API Keys** | OpenAI `sk-...`, GitHub `ghp_...`, AWS `AKIA...`, Google `AIza...`, Stripe `sk_live_...`, Bearer tokens, and 30+ more | Critical |
-| **Credit Cards** | `4111 1111 1111 1111` (Luhn validated) | Critical |
-| **SSNs** | `123-45-6789` | Critical |
-| **Bank Accounts (IBAN)** | `GB82WEST12345698765432` | Critical |
-| **Passports** | `AB1234567` | High |
-| **IP Addresses** | `192.168.1.1` | High |
-| **Emails** | `john@example.com` | Medium |
-| **Phone Numbers** | `+254712345678`, `0712345678` | Medium |
-| **M-Pesa Codes** | `QKA12X9L4M` | Low |
-
-Plus **custom regex rules** you define yourself (up to 15).
-
----
-
-## Features
-
-### Chrome Extension
-
-- **Paste interception** — Redacts sensitive data when pasting
-- **Copy interception** — Redacts clipboard contents when copying
-- **Typing scan** — Detects sensitive patterns as you type
-- **Review dialog** — Optional confirmation before redacting
-- **Traffic light widget** — Visual status indicator (green/amber/red)
-- **Pause/resume** — Temporary pause with auto-resume (configurable)
-- **Site allowlist/blocklist** — Control which sites are protected
-- **Settings page** — Full configuration with import/export
-- **Keyboard shortcuts** — `Alt+Shift+M` toggle, `Alt+Shift+P` pause
-
-### MCP Server (Claude Desktop)
-
-6 tools available to Claude Desktop and MCP-capable apps:
-
-| Tool | Description |
-|------|-------------|
-| `scan_text` | Scan text for sensitive data, returns findings + risk score |
-| `redact_text` | Scan and redact, returns cleaned text |
-| `evaluate_policy` | Evaluate text against policy, returns allowed/denied |
-| `get_status` | Engine version, config path, rules count |
-| `get_rules` | List all active rules with severity levels |
-| `update_rules` | Add or replace custom regex rules |
-
-### Shared Engine
-
-The detection engine works across both surfaces:
-
-```javascript
-const { scanText, redactText, evaluatePolicy } = require("./engine/index");
-
-const result = scanText("Contact john@example.com, SSN 123-45-6789");
-// result.findings     → [{ type: "EMAIL", value: "john@example.com", severity: "medium" }, ...]
-// result.riskScore    → 10
-// result.riskLevel    → "medium"
-// result.redactedText → "Contact [EMAIL_REDACTED], SSN [SSN_REDACTED]"
-```
-
----
+> MaskIt processes content locally. It does not send scanned text or raw clipboard contents to a remote service.
 
 ## Architecture
 
-```
-engine/index.js (shared core)
-       |
-  +----+----------------+
-  |                     |
-browser extension    mcp-server/
-(chrome MV3)         (Claude Desktop)
-```
+MaskIt uses shared rule and policy contracts across three adapters:
 
-**One detection engine, multiple surfaces. All local. No cloud.**
-
-| Component | Description |
-|-----------|-------------|
-| `engine/` | Shared detection engine (Node.js) — patterns, risk scoring, redaction |
-| `content.js` | Browser content script — event handlers, traffic light, review dialog |
-| `background.js` | Service worker — badge, shortcuts, pause state |
-| `mcp-server/` | MCP server — 6 tools via stdio transport |
-
----
-
-## Project Structure
-
-```
-maskit-extension/
-├── manifest.json              # Extension manifest (MV3)
-├── content.js                 # Content script (event handlers)
-├── background.js              # Service worker
-├── settings.js                # Browser settings
-├── detector.js                # Browser detection engine
-├── sanitizer.js               # Browser redaction
-├── editors.js                 # ChatGPT/Gmail editor support
-├── popup.html / popup.js      # Toolbar popup
-├── options.html / options.js  # Settings page
-├── engine/                    # Shared detection engine
-│   ├── index.js               # Public API
-│   ├── detector.js            # Patterns & redaction
-│   ├── settings.js            # Settings & regex safety
-│   └── test.js                # 52 tests
-├── mcp-server/                # MCP server for Claude Desktop
-│   ├── server.js              # 6 tools, stdio transport
-│   ├── config.js              # OS-specific config
-│   ├── test.js                # 18 tests
-│   └── README.md              # Setup guide
-├── icons/                     # Extension icons
-├── scripts/                   # Build & utility scripts
-├── website/                   # Landing page
-└── test.js                    # 32 browser extension tests
+```text
+                         MaskIt Core contract
+                       /          |          \\
+              Browser extension  MCP server  Windows agent
 ```
 
----
+The repository's `engine/` module is the JavaScript runtime used by the browser and MCP adapters. The `maskit-core/` directory contains versioned JSON rule and policy artifacts consumed by the Windows .NET adapter. Shared parity fixtures verify equivalent findings and redaction behaviour where the runtimes support them.
 
-## Development
+The contract covers:
 
-### Prerequisites
+- Detection rules and validators
+- Policy actions: `allow`, `redact`, and `block`
+- Severity weights and risk levels
+- Redaction formats
+- Custom rules
+- Structured audit events
 
-- Google Chrome (MV3 support)
-- Node.js 18+
+## Supported AI surfaces
+
+### Browser extension
+
+The Manifest V3 extension runs on these hosts only:
+
+- `chatgpt.com`
+- `chat.openai.com`
+- `claude.ai`
+- `gemini.google.com`
+- `copilot.microsoft.com`
+- `*.cursor.com`
+
+It supports paste interception, optional copy and typing scans, review-before-redact, pause/resume, site controls, settings import/export, a status widget, and keyboard shortcuts.
+
+### MCP server
+
+The MCP server works with Claude Desktop and other MCP-capable clients. It exposes seven tools:
+
+| Tool | Purpose |
+|------|---------|
+| `scan_text` | Detect sensitive data and return findings, policy decisions, and risk information |
+| `redact_text` | Return locally redacted text and findings |
+| `evaluate_policy` | Evaluate whether detected data is allowed, redacted, or blocked |
+| `scan_response` | Scan an AI-generated response for sensitive data |
+| `get_status` | Return engine and configuration status |
+| `get_rules` | List active built-in and custom rules |
+| `get_audit_log` | Read recent local audit events |
+
+Setup:
+
+```bash
+cd mcp-server
+npm install
+```
+
+Add the server to Claude Desktop's configuration:
+
+```json
+{
+  "mcpServers": {
+    "maskit": {
+      "command": "node",
+      "args": ["/absolute/path/to/MaskIt/mcp-server/server.js"]
+    }
+  }
+}
+```
+
+### Windows agent
+
+The .NET 8 Windows tray agent monitors the system clipboard and uses the `maskit-core/` rule and policy artifacts. It handles Windows-specific clipboard and foreground-window integration while the shared contract supplies detection, policy actions, risk scoring, redaction, and audit fields.
+
+Build and run on Windows:
+
+```powershell
+dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release
+dotnet run --project maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release
+```
+
+Run the shared fixture parity smoke test:
+
+```powershell
+dotnet run --project maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release -- --parity
+```
+
+The Windows agent requires a Windows desktop session for clipboard monitoring. The parity command is the supported non-interactive validation path.
+
+## Detection coverage
+
+Built-in rules cover:
+
+| Type | Examples | Default severity |
+|------|----------|------------------|
+| API keys and tokens | OpenAI, Anthropic, GitHub, AWS, Google, Stripe, Bearer, cloud provider tokens | Critical |
+| Credit cards | Luhn-validated card numbers | Critical |
+| SSNs | `123-45-6789` | Critical |
+| Bank accounts | IBAN-like values | Critical |
+| Passports | Alphanumeric passport values | High |
+| IP addresses | IPv4 addresses | High |
+| Email addresses | `name@example.com` | Medium |
+| Phone numbers | Kenyan phone formats | Medium |
+| M-Pesa codes | Mixed alphanumeric transaction codes | Low |
+| Custom rules | Up to 15 validated regular expressions | Medium by default |
+
+Policies can allow, redact, or block findings by data type and application context. Audit records contain metadata and hashed sensitive values, not raw matched content.
+
+## Development and validation
+
+Requirements:
+
+- Node.js 18 or newer
 - npm
-
-### Setup
+- Chrome or another compatible browser for extension testing
+- .NET 8 SDK on Windows for agent builds and parity tests
 
 ```bash
 git clone https://github.com/designx-studio/MaskIt.git
 cd MaskIt
+npm install
 npm test
-```
-
-### Run Tests
-
-```bash
-npm test                    # All suites (102 tests)
-node engine/test.js         # Engine only (52 tests)
-node test.js                # Extension only (32 tests)
-node mcp-server/test.js     # MCP server only (18 tests)
-```
-
-### Build for Chrome Web Store
-
-```bash
+npm run lint
+npm run test:regex
 npm run build
-# Creates dist/maskit-extension.zip
 ```
 
-### Version Bump
+Useful test commands:
 
 ```bash
-node scripts/bump-version.js patch   # 2.3.0 → 2.3.1
-node scripts/bump-version.js minor   # 2.3.0 → 2.4.0
-node scripts/bump-version.js major   # 2.3.0 → 3.0.0
+npm run test:engine
+npm run test:extension
+npm run test:mcp
+npm run test:parity
 ```
 
----
+CI also runs dependency audits, manifest validation, production packaging, a Windows .NET 8 build, and the Windows shared-fixture parity command. See `.github/workflows/ci.yml` for the authoritative pipeline.
 
-## Privacy
+## Security model and limitations
 
-Maskit is built privacy-first:
+- Scanning and redaction are local operations.
+- The extension requests storage and context-menu permissions plus explicit AI host permissions only.
+- Audit logs avoid storing raw matched values.
+- No analytics or telemetry is included.
+- The browser adapter cannot protect text entered on hosts outside its declared AI host list.
+- The Windows agent protects clipboard flows; it cannot inspect content that never reaches the clipboard.
+- Detection is pattern-based and should not be treated as a guarantee that every secret or sensitive value will be found.
 
-- **Local-only processing** — No data leaves your device
-- **No network requests** — Content scanning happens entirely in the browser
-- **No sensitive data stored** — Only counts and settings are saved
-- **Narrow permissions** — Only ChatGPT and Gmail (no broad host access)
-- **No analytics or telemetry** — We don't track you
-
-See [SECURITY.md](SECURITY.md) for the full threat model and data handling details.
-
----
-
-## Permissions
-
-| Permission | Why |
-|------------|-----|
-| `storage` | Save settings and statistics |
-| `chatgpt.com` | Content script injection on ChatGPT |
-| `chat.openai.com` | Content script injection on ChatGPT (legacy) |
-| `mail.google.com` | Content script injection on Gmail |
-
-No network, clipboard, or tabs permissions. Clipboard access uses in-event `clipboardData` during paste/copy handlers.
-
----
-
-## Test Coverage
-
-| Suite | Tests | Status |
-|-------|-------|--------|
-| Engine (`engine/test.js`) | 52 | ✅ All pass |
-| Browser (`test.js`) | 32 | ✅ All pass |
-| MCP Server (`mcp-server/test.js`) | 18 | ✅ All pass |
-| **Total** | **102** | **✅ All pass** |
-
----
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [BUILD.md](BUILD.md) | Architecture, build instructions, file structure |
-| [SECURITY.md](SECURITY.md) | Threat model, data handling, permissions |
-| [FEATURES.md](FEATURES.md) | Complete feature inventory |
-| [CHANGELOG.md](CHANGELOG.md) | Version history |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Development guide |
-| [RELEASE.md](RELEASE.md) | Release process |
-| [PRD.md](PRD.md) | Product requirements document |
-| [mcp-server/README.md](mcp-server/README.md) | MCP server setup guide |
-
----
-
-## Roadmap
-
-### v2 (Planned)
-- HTTP server mode for custom integrations
-- CLI tool for scripts
-- Cursor / IDE-specific support
-- Discord/Slack bot integrations
-- GitHub Action for secret scanning
-- Express.js middleware
-
-### v3 (Future)
-- Enterprise policy management
-- Fleet management
-- SIEM integration
-- Compliance reporting
-
----
+See [SECURITY.md](SECURITY.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [maskit-agent/README.md](maskit-agent/README.md) for implementation details.
 
 ## License
 
-[MIT](LICENSE) — Copyright (c) 2026 Maskit Contributors
+[MIT](LICENSE)
