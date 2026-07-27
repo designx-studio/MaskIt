@@ -1,0 +1,8 @@
+[
+  {"name":"email","text":"Contact john@example.com","types":["EMAIL"],"format":"tagged"},
+  {"name":"phone","text":"Call +254712345678","types":["PHONE"],"format":"tagged"},
+  {"name":"api-key","text":"Key sk-proj-abcdefghijklmnopqrstuvwxyz1234","types":["API_KEY"],"format":"stars"},
+  {"name":"card","text":"Card 4111 1111 1111 1111","types":["CARD"],"format":"stars"},
+  {"name":"ssn-policy","text":"SSN 123-45-6789","types":["SSN"],"format":"stars","blocked":true},
+  {"name":"custom-rule","text":"Employee EMP-12345","types":["CUSTOM:Employee ID"],"format":"tagged","customRules":[{"id":"employee","name":"Employee ID","pattern":"EMP-\\d{5}","enabled":true}]}
+]

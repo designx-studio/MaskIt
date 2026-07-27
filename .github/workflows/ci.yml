@@ -17,28 +17,35 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: npm
       - run: npm ci
       - name: Lint
         run: npm run lint
-      - name: Validate regex safety (ReDoS)
+      - name: Validate regex safety
         run: npm run test:regex
       - name: Audit dependencies
-        run: npm audit --production
+        run: npm audit --omit=dev
       - run: npm test
       - name: Install MCP server deps
         run: cd mcp-server && npm ci --ignore-scripts
       - name: Audit MCP server dependencies
-        run: cd mcp-server && npm audit --production
+        run: cd mcp-server && npm audit --omit=dev
       - name: Run MCP server tests
         run: node mcp-server/test.js
+      - name: Run MCP integration handlers
+        run: node mcp-server/integration-test.js
       - name: Validate manifests
         run: node scripts/validate-manifests.js
-      - name: Build all browser extensions
+      - name: Build all production artifacts
         run: npm run build
-      - name: Verify all zips created
+      - name: Verify artifacts
         run: |
           test -f dist/maskit-chrome.zip
           test -f dist/maskit-firefox.zip
           test -f dist/maskit-edge.zip
           test -f dist/maskit-opera.zip
-          echo "All browser zips built successfully"
+          test -f dist/maskit-extension.zip
+          test -f dist/maskit-mcp.tar.gz
+      - name: Build Windows agent
+        if: matrix.node-version == 20
+        run: dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release
