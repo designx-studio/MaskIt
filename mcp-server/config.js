@@ -1,158 +1,36 @@
-/**
- * Maskit MCP Server — Config File Management
- * Reads/writes JSON config at OS-specific well-known location.
- */
-
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
-
 const ENGINE_DEFAULTS = require("../engine/settings").MASKIT_DEFAULTS;
 
-// ── Config file location ────────────────────────────────────────────────────
-
 function getConfigDir() {
-    const platform = process.platform;
-
-    if (platform === "win32") {
-        return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "Maskit");
-    }
-    if (platform === "darwin") {
-        return path.join(os.homedir(), "Library", "Application Support", "Maskit");
-    }
+    if (process.platform === "win32") return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "Maskit");
+    if (process.platform === "darwin") return path.join(os.homedir(), "Library", "Application Support", "Maskit");
     return path.join(os.homedir(), ".config", "maskit");
 }
-
-function getConfigPath() {
-    return path.join(getConfigDir(), "config.json");
-}
-
-// ── Default config ──────────────────────────────────────────────────────────
-
-function getDefaultConfig() {
-    return Object.assign({}, ENGINE_DEFAULTS, {
-        version: "1.0",
-        severity: {
-            API_KEY: "critical",
-            CARD: "critical",
-            SSN: "critical",
-            BANK_ACCOUNT: "critical",
-            PASSPORT: "high",
-            IP_ADDRESS: "high",
-            EMAIL: "medium",
-            PHONE: "medium",
-            MPESA: "low",
-            CUSTOM: "medium"
-        },
-        appOverrides: {
-            "claude-desktop": { enabled: true, reviewBeforeRedact: true },
-            "cursor": { enabled: true }
-        }
-    });
-}
-
-// ── Read config ─────────────────────────────────────────────────────────────
-
+function getConfigPath() { return path.join(getConfigDir(), "config.json"); }
+function getDefaultConfig() { return Object.assign({}, ENGINE_DEFAULTS, { version: "1.0", severity: { API_KEY: "critical", CARD: "critical", SSN: "critical", BANK_ACCOUNT: "critical", PASSPORT: "high", IP_ADDRESS: "high", EMAIL: "medium", PHONE: "medium", MPESA: "low", CUSTOM: "medium" }, appOverrides: { "claude-desktop": { enabled: true, reviewBeforeRedact: true }, cursor: { enabled: true } } }); }
 function readConfig() {
-    const configPath = getConfigPath();
-
-    try {
-        if (fs.existsSync(configPath)) {
-            const raw = fs.readFileSync(configPath, "utf8");
-            const parsed = JSON.parse(raw);
-            return Object.assign({}, getDefaultConfig(), parsed);
-        }
-    } catch (err) {
-        console.error("Failed to read config:", err.message);
-    }
-
+    try { const file = getConfigPath(); if (fs.existsSync(file)) return Object.assign({}, getDefaultConfig(), JSON.parse(fs.readFileSync(file, "utf8"))); }
+    catch (err) { console.error("Failed to read config:", err.message); }
     return getDefaultConfig();
 }
-
-// ── Write config ────────────────────────────────────────────────────────────
-
-function writeConfig(config) {
-    const configDir = getConfigDir();
-    const configPath = getConfigPath();
-
+function writeConfig(value) {
+    const dir = getConfigDir(); const file = getConfigPath(); const temp = file + ".tmp";
     try {
-        fs.mkdirSync(configDir, { recursive: true });
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 4), "utf8");
-        return { ok: true, path: configPath };
-    } catch (err) {
-        return { ok: false, error: err.message };
-    }
+        fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+        fs.writeFileSync(temp, JSON.stringify(value, null, 4), { encoding: "utf8", mode: 0o600 });
+        fs.renameSync(temp, file);
+        if (process.platform !== "win32") { try { fs.chmodSync(dir, 0o700); fs.chmodSync(file, 0o600); } catch { /* best effort on restricted filesystems */ } }
+        return { ok: true, path: file };
+    } catch (err) { try { if (fs.existsSync(temp)) fs.unlinkSync(temp); } catch {} return { ok: false, error: err.message }; }
 }
-
-// ── Get settings for specific app ───────────────────────────────────────────
-
-function getSettingsForApp(appName) {
-    const config = readConfig();
-    const base = Object.assign({}, config);
-
-    if (appName && config.appOverrides && config.appOverrides[appName]) {
-        Object.assign(base, config.appOverrides[appName]);
-    }
-
-    return base;
-}
-
-// ── API token management (for HTTP server auth) ─────────────────────────────
-
-function getApiToken() {
-    const config = readConfig();
-    return config.apiToken || null;
-}
-
-function setApiToken(token) {
-    const config = readConfig();
-    config.apiToken = token;
-    writeConfig(config);
-}
-
-function getOrCreateApiToken() {
-    let token = getApiToken();
-    if (!token) {
-        token = crypto.randomBytes(32).toString("hex");
-        setApiToken(token);
-    }
-    return token;
-}
-
-// ── Hash salt management (for sensitive data hashing) ───────────────────────
-
-function getHashSalt() {
-    const config = readConfig();
-    return config.hashSalt || null;
-}
-
-function setHashSalt(salt) {
-    const config = readConfig();
-    config.hashSalt = salt;
-    writeConfig(config);
-}
-
-function getOrCreateHashSalt() {
-    let salt = getHashSalt();
-    if (!salt) {
-        salt = crypto.randomBytes(32).toString("hex");
-        setHashSalt(salt);
-    }
-    return salt;
-}
-
-module.exports = {
-    getConfigDir,
-    getConfigPath,
-    getDefaultConfig,
-    readConfig,
-    writeConfig,
-    getSettingsForApp,
-    getApiToken,
-    setApiToken,
-    getOrCreateApiToken,
-    getHashSalt,
-    setHashSalt,
-    getOrCreateHashSalt
-};
+function getSettingsForApp(appName) { const config = readConfig(); return Object.assign({}, config, appName && config.appOverrides?.[appName] ? config.appOverrides[appName] : {}); }
+function getApiToken() { return readConfig().apiToken || null; }
+function setApiToken(token) { return writeConfig(Object.assign(readConfig(), { apiToken: token })); }
+function getOrCreateApiToken() { return getApiToken() || (setApiToken(crypto.randomBytes(32).toString("hex")), getApiToken()); }
+function getHashSalt() { return readConfig().hashSalt || null; }
+function setHashSalt(salt) { return writeConfig(Object.assign(readConfig(), { hashSalt: salt })); }
+function getOrCreateHashSalt() { return getHashSalt() || (setHashSalt(crypto.randomBytes(32).toString("hex")), getHashSalt()); }
+module.exports = { getConfigDir, getConfigPath, getDefaultConfig, readConfig, writeConfig, getSettingsForApp, getApiToken, setApiToken, getOrCreateApiToken, getHashSalt, setHashSalt, getOrCreateHashSalt };
