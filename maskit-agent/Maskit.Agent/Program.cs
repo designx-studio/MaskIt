@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Threading;
 using Maskit.Agent.Services;
 
@@ -12,7 +11,7 @@ internal static class Program
     static int Main(string[] args)
     {
         if (args.Length == 1 && string.Equals(args[0], "--parity", StringComparison.OrdinalIgnoreCase))
-            return CoreParityTests.Run(AppContext.BaseDirectory);
+            return CoreParityTests.Run(System.AppContext.BaseDirectory);
 
         using var mutex = new Mutex(true, "MaskitAgentSingleInstance", out bool createdNew);
         if (!createdNew) return 0;
