@@ -18,7 +18,6 @@ internal static class CoreParityTests
         var core = new MaskitCoreService(rules, policy);
         var fixturePath = Path.Combine(root, "parity-fixtures.json");
         if (!File.Exists(fixturePath)) throw new FileNotFoundException("Shared parity fixtures not found", fixturePath);
-
         using var document = JsonDocument.Parse(File.ReadAllText(fixturePath));
         var failures = 0;
         foreach (var category in document.RootElement.EnumerateObject())
@@ -27,11 +26,18 @@ internal static class CoreParityTests
             var input = fixture.Value.GetProperty("input").GetString() ?? "";
             if (fixture.Value.TryGetProperty("rule", out var custom))
                 rules.AddRuntimeRule(custom.GetProperty("id").GetString() ?? "custom", custom.GetProperty("pattern").GetString() ?? "");
-            var expected = fixture.Value.GetProperty("findings");
-            var actual = core.Scan(input, new Services.AppContext { ProcessName = "chatgpt.com", AiDetected = true });
-            var expectedValues = expected.EnumerateArray().Select(x => (x.GetProperty("type").GetString() ?? "", x.GetProperty("value").GetString() ?? "")).ToArray();
-            var actualValues = actual.Findings.Select(x => (x.Type, x.Value)).Where(x => expectedValues.Contains(x)).ToArray();
-            if (!expectedValues.SequenceEqual(actualValues)) { Console.Error.WriteLine($"FAIL {category.Name}.{fixture.Name}"); failures++; }
+            var actual = core.Scan(input, new Services.AppContext { ProcessName = "chatgpt.com", AiDetected = true }, "windows-clipboard");
+            var expected = fixture.Value.GetProperty("findings").EnumerateArray().Select(x => (x.GetProperty("type").GetString() ?? "", x.GetProperty("value").GetString() ?? "")).ToArray();
+            var found = actual.Findings.Select(x => (x.Type, x.Value)).Where(x => expected.Contains(x)).ToArray();
+            var expectedActions = fixture.Value.GetProperty("actions").EnumerateArray().Select(x => x.GetString() ?? "").ToArray();
+            var actualActions = actual.Decisions.Select(x => x.Action).Where(x => expectedActions.Contains(x)).ToArray();
+            var ok = expected.SequenceEqual(found)
+                && actual.RiskScore == fixture.Value.GetProperty("riskScore").GetInt32()
+                && actual.RiskLevel == fixture.Value.GetProperty("riskLevel").GetString()
+                && expectedActions.SequenceEqual(actualActions)
+                && actual.AuditEvents.Length == expected.Length
+                && actual.AuditEvents.All(e => !string.IsNullOrEmpty(e.Type) && !string.IsNullOrEmpty(e.Source) && !string.IsNullOrEmpty(e.Action));
+            if (!ok) { Console.Error.WriteLine($"FAIL {category.Name}.{fixture.Name}"); failures++; }
             else Console.WriteLine($"PASS {category.Name}.{fixture.Name}");
         }
         Console.WriteLine($"Windows parity: {failures} failed");
