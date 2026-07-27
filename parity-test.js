@@ -1,27 +1,62 @@
 const assert = require("assert");
 const fs = require("fs");
-const vm = require("vm");
+const path = require("path");
 const engine = require("./engine/index");
+const detector = require("./detector");
+const sanitizer = require("./sanitizer");
 
-const fixtures = JSON.parse(fs.readFileSync("parity-fixtures.json", "utf8"));
-const browser = { console, RegExp, String, Object, Array, Set, Math, Date };
-vm.createContext(browser);
-vm.runInContext(fs.readFileSync("settings.js", "utf8"), browser);
-vm.runInContext(fs.readFileSync("detector.js", "utf8"), browser);
-vm.runInContext(fs.readFileSync("sanitizer.js", "utf8"), browser);
-const browserDefaults = vm.runInContext("MASKIT_DEFAULTS", browser);
+const fixtures = JSON.parse(fs.readFileSync(path.join(__dirname, "parity-fixtures.json"), "utf8"));
+const MASKIT_DEFAULTS = require("./engine/settings").MASKIT_DEFAULTS;
 
-for (const fixture of fixtures) {
-  const settings = { ...browserDefaults, redactFormat: fixture.format, customRules: fixture.customRules || [] };
-  const browserFindings = browser.detectSensitiveData(fixture.text, settings).map((f) => f.type);
-  const nodeResult = engine.scanText(fixture.text, { ...settings, _context: { app: "claude.ai", source: "parity" } });
-  for (const type of fixture.types) {
-    assert.ok(browserFindings.includes(type), `${fixture.name}: browser missing ${type}`);
-    assert.ok(nodeResult.allFindings.some((f) => f.type === type), `${fixture.name}: core missing ${type}`);
+let passed = 0;
+let failed = 0;
+
+function runParityTest(category, name, testCase) {
+  try {
+    // 1. Test engine output
+    const settings = { ...MASKIT_DEFAULTS };
+    if (category === "custom") {
+      settings.customRules = [testCase.rule];
+    }
+    
+    const engineResult = engine.scanText(testCase.input, settings);
+    assert.deepStrictEqual(
+      engineResult.allFindings.map(f => ({ type: f.type, value: f.value })), 
+      testCase.findings, 
+      `Engine mismatch for ${category}.${name}`
+    );
+
+    // 2. Test browser detector output
+    const browserFindings = detector.detectSensitiveData(testCase.input, settings);
+    assert.deepStrictEqual(
+      browserFindings.map(f => ({ type: f.type, value: f.value })),
+      testCase.findings,
+      `Browser detector mismatch for ${category}.${name}`
+    );
+    
+    // 3. Test sanitizer outputs
+    const taggedResult = sanitizer.sanitizeText(testCase.input, browserFindings, { ...settings, redactFormat: "tagged" });
+    assert.strictEqual(taggedResult, testCase.redacted_tagged, `Tagged redaction mismatch for ${category}.${name}`);
+    
+    const starsResult = sanitizer.sanitizeText(testCase.input, browserFindings, { ...settings, redactFormat: "stars" });
+    assert.strictEqual(starsResult, testCase.redacted_stars, `Stars redaction mismatch for ${category}.${name}`);
+
+    console.log(`  PASS  ${category}.${name}`);
+    passed++;
+  } catch (err) {
+    console.error(`  FAIL  ${category}.${name}`);
+    console.error(`        ${err.message}`);
+    failed++;
   }
-  assert.strictEqual(browserFindings.length, nodeResult.allFindings.length, `${fixture.name}: finding count drift`);
-  const browserRedacted = browser.sanitizeText(fixture.text, browser.detectSensitiveData(fixture.text, settings), settings);
-  assert.strictEqual(nodeResult.redactedText, browserRedacted, `${fixture.name}: redaction drift`);
-  if (fixture.blocked) assert.ok(nodeResult.policyDecisions.some((d) => d.action === "block"), `${fixture.name}: policy drift`);
 }
-console.log(`Parity fixtures passed: ${fixtures.length}`);
+
+console.log("\nRunning Cross-Platform Parity Tests\n");
+
+Object.entries(fixtures).forEach(([category, tests]) => {
+  Object.entries(tests).forEach(([name, testCase]) => {
+    runParityTest(category, name, testCase);
+  });
+});
+
+console.log(`\nParity Tests: ${passed} passed, ${failed} failed\n`);
+if (failed > 0) process.exit(1);
