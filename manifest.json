@@ -2,26 +2,26 @@
   "manifest_version": 3,
   "name": "Maskit",
   "version": "2.4.0",
-  "description": "Helps reduce accidental exposure of sensitive data on supported sites. Local processing only.",
+  "description": "Protect sensitive information before it reaches AI tools. Local processing only.",
   "browser_specific_settings": {
     "gecko": {
       "id": "maskit@maskit.local",
       "strict_min_version": "109.0"
     }
   },
-  "permissions": [
-    "storage",
-    "contextMenus"
-  ],
+  "permissions": ["storage", "contextMenus"],
   "host_permissions": [
-    "<all_urls>"
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://copilot.microsoft.com/*",
+    "https://*.cursor.com/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'"
   },
-  "background": {
-    "service_worker": "background.js"
-  },
+  "background": { "service_worker": "background.js" },
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -39,15 +39,11 @@
   "options_page": "options.html",
   "commands": {
     "toggle-protection": {
-      "suggested_key": {
-        "default": "Alt+Shift+M"
-      },
+      "suggested_key": { "default": "Alt+Shift+M" },
       "description": "Toggle Maskit protection"
     },
     "pause-protection": {
-      "suggested_key": {
-        "default": "Alt+Shift+P"
-      },
+      "suggested_key": { "default": "Alt+Shift+P" },
       "description": "Pause Maskit temporarily"
     }
   },
@@ -55,15 +51,18 @@
     {
       "id": "maskit-scan-selection",
       "title": "Maskit: Scan & Redact Selection",
-      "contexts": [
-        "selection"
-      ]
+      "contexts": ["selection"]
     }
   ],
   "content_scripts": [
     {
       "matches": [
-        "<all_urls>"
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://*.cursor.com/*"
       ],
       "js": [
         "settings.js",
