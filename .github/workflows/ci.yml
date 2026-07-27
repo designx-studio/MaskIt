@@ -46,6 +46,18 @@ jobs:
           test -f dist/maskit-opera.zip
           test -f dist/maskit-extension.zip
           test -f dist/maskit-mcp.tar.gz
+
+  windows-agent:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Restore Windows agent
+        run: dotnet restore maskit-agent/Maskit.Agent/Maskit.Agent.csproj
       - name: Build Windows agent
-        if: matrix.node-version == 20
-        run: dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release
+        run: dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --no-restore
+      - name: Run Windows shared parity tests
+        run: dotnet run --project maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --no-build -- --parity
