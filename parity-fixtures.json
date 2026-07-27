@@ -1,4 +1,3 @@
-// Shared test fixtures for ensuring detection parity across runtimes
 {
   "api_keys": {
     "openai": {
