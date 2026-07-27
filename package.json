@@ -2,9 +2,9 @@
   "name": "maskit-extension",
   "version": "2.4.0",
   "private": true,
-  "description": "Prevent accidental sharing of sensitive customer data.",
+  "description": "Protect sensitive information before it reaches AI tools.",
   "scripts": {
-    "test": "node test.js && node engine/test.js && node mcp-server/test.js",
+    "test": "node test.js && node engine/test.js && node mcp-server/test.js && node parity-test.js",
     "test:regex": "node scripts/validate-regex-safety.js",
     "build": "node scripts/build.js",
     "build:chrome": "node scripts/build.js chrome",
@@ -18,9 +18,8 @@
     "version:bump": "node scripts/bump-version.js",
     "test:engine": "node engine/test.js",
     "test:extension": "node test.js",
-    "test:mcp": "node mcp-server/test.js"
+    "test:mcp": "node mcp-server/test.js",
+    "test:parity": "node parity-test.js"
   },
-  "devDependencies": {
-    "safe-regex": "^2.1.1"
-  }
+  "devDependencies": { "safe-regex": "^2.1.1" }
 }

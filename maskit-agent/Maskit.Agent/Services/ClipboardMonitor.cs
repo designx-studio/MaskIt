@@ -1,480 +1,150 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace Maskit.Agent.Services;
 
-/// <summary>
-/// Monitors Windows clipboard for sensitive data.
-/// When text is copied, scans it and replaces with redacted version if needed.
-/// Uses AddClipboardFormatListener for event-driven clipboard notifications.
-/// </summary>
-public class ClipboardMonitor : IDisposable
+public sealed class ClipboardMonitor : IDisposable
 {
-    private readonly RuleEngine _ruleEngine;
-    private readonly PolicyEngine _policyEngine;
-    private readonly AuditLogger _auditLogger;
-    private readonly ForegroundDetector _foregroundDetector;
-    private bool _isMonitoring;
-    private string? _lastClipboardText;
-    private CancellationTokenSource? _cts;
+    private readonly MaskitCoreService _core;
+    private readonly AuditLogger _audit;
+    private readonly ForegroundDetector _foreground;
+    private const int WmClipboardUpdate = 0x031D;
+    private const int WmQuit = 0x0012;
+    private const uint CfUnicodeText = 13;
+    private const uint GmemMoveable = 0x0002;
+    private const uint GmemZeroInit = 0x0040;
+    private static readonly IntPtr MessageWindow = new(-3);
+    private IntPtr _hwnd;
+    private Thread? _thread;
+    private bool _running;
+    private string? _lastText;
+    private GCHandle _callbackHandle;
+    private WndProc? _callback;
+    private readonly ManualResetEventSlim _ready = new(false);
+    public bool IsMonitoring => _running;
+    public event Action<string, int>? OnRedaction;
 
-    // Windows API constants
-    private const int WM_CLIPBOARDUPDATE = 0x031D;
-    private const int CF_UNICODETEXT = 13;
-    private const uint GMEM_MOVEABLE = 0x0002;
-    private const uint GMEM_ZEROINIT = 0x0040;
-    private static readonly IntPtr HWND_MESSAGE = new IntPtr(-3);
+    public ClipboardMonitor(MaskitCoreService core, AuditLogger audit, ForegroundDetector foreground)
+    { _core = core ?? throw new ArgumentNullException(nameof(core)); _audit = audit ?? throw new ArgumentNullException(nameof(audit)); _foreground = foreground ?? throw new ArgumentNullException(nameof(foreground)); }
 
-    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern ushort RegisterClassEx(ref WNDCLASSEX lpwcx);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr CreateWindowEx(
-        uint dwExStyle,
-        string? lpClassName,
-        string? lpWindowName,
-        uint dwStyle,
-        int x, int y,
-        int nWidth, int nHeight,
-        IntPtr hWndParent,
-        IntPtr hMenu,
-        IntPtr hInstance,
-        IntPtr lpParam);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool DestroyWindow(IntPtr hWnd);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool AddClipboardFormatListener(IntPtr hWnd);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool RemoveClipboardFormatListener(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern bool GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
-
-    [DllImport("user32.dll")]
-    private static extern bool TranslateMessage(ref MSG lpMsg);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr DispatchMessage(ref MSG lpMsg);
-
-    [DllImport("user32.dll")]
-    private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct WNDCLASSEX
-    {
-        public uint cbSize;
-        public uint style;
-        public IntPtr lpfnWndProc;
-        public int cbClsExtra;
-        public int cbWndExtra;
-        public IntPtr hInstance;
-        public IntPtr hIcon;
-        public IntPtr hCursor;
-        public IntPtr hbrBackground;
-        public string? lpszMenuName;
-        public string? lpszClassName;
-        public IntPtr hIconSm;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MSG
-    {
-        public IntPtr hWnd;
-        public uint message;
-        public IntPtr wParam;
-        public IntPtr lParam;
-        public uint time;
-        public POINT pt;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct POINT
-    {
-        public int x;
-        public int y;
-    }
-
-    private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-    private WndProcDelegate? _wndProcDelegate;
-    private GCHandle _wndProcHandle;
-    private IntPtr _hwnd = IntPtr.Zero;
-    private Thread? _messageThread;
-    private readonly ManualResetEventSlim _windowCreatedEvent = new ManualResetEventSlim(false);
-
-    public bool IsMonitoring => _isMonitoring;
-    public event Action<string, int>? OnRedaction; // (app, count)
-
-    public ClipboardMonitor(RuleEngine ruleEngine, PolicyEngine policyEngine,
-        AuditLogger auditLogger, ForegroundDetector foregroundDetector)
-    {
-        _ruleEngine = ruleEngine;
-        _policyEngine = policyEngine;
-        _auditLogger = auditLogger;
-        _foregroundDetector = foregroundDetector;
-    }
-
-    /// <summary>
-    /// Start monitoring clipboard using WM_CLIPBOARDUPDATE message listener.
-    /// </summary>
     public void Start()
     {
-        if (_isMonitoring) return;
-        _isMonitoring = true;
-        _cts = new CancellationTokenSource();
-
-        _messageThread = new Thread(MessageLoop) { IsBackground = true };
-        _messageThread.Start();
-
-        // Wait for the window to be created before returning
-        if (!_windowCreatedEvent.Wait(2000))
-        {
-            Console.Error.WriteLine("ClipboardMonitor: timeout waiting for message window");
-        }
+        if (_running) return;
+        _running = true;
+        _thread = new Thread(MessageLoop) { IsBackground = true };
+        _thread.Start();
+        _ready.Wait(2000);
     }
 
     public void Stop()
     {
-        if (!_isMonitoring) return;
-        _isMonitoring = false;
-
-        // Signal the message loop to exit
-        if (_hwnd != IntPtr.Zero)
-        {
-            PostMessage(_hwnd, 0x0012, IntPtr.Zero, IntPtr.Zero); // WM_QUIT
-        }
-
-        _cts?.Cancel();
-        _messageThread?.Join(1000);
-        _messageThread = null;
-
-        CleanupWindow();
+        if (!_running) return;
+        _running = false;
+        if (_hwnd != IntPtr.Zero) PostMessage(_hwnd, WmQuit, IntPtr.Zero, IntPtr.Zero);
+        _thread?.Join(1500);
+        _thread = null;
+        Cleanup();
     }
 
     private void MessageLoop()
     {
         try
         {
-            CreateMessageWindow();
-
-            if (_hwnd == IntPtr.Zero)
-            {
-                Console.Error.WriteLine("ClipboardMonitor: failed to create message window");
-                return;
-            }
-
-            // Signal that the window is ready
-            _windowCreatedEvent.Set();
-
-            // Message loop
-            while (GetMessage(out MSG msg, _hwnd, 0, 0))
-            {
-                if (msg.message == WM_CLIPBOARDUPDATE)
-                {
-                    CheckClipboard();
-                }
-                TranslateMessage(ref msg);
-                DispatchMessage(ref msg);
-            }
+            CreateWindow();
+            _ready.Set();
+            while (GetMessage(out var msg, _hwnd, 0, 0)) { if (msg.message == WmClipboardUpdate) TryProcessClipboard(); TranslateMessage(ref msg); DispatchMessage(ref msg); }
         }
-        catch (Exception ex)
+        catch (Exception ex) { Console.Error.WriteLine($"Clipboard monitor stopped safely: {ex.Message}"); }
+        finally { _ready.Set(); }
+    }
+
+    private void CreateWindow()
+    {
+        _callback = WindowProc;
+        _callbackHandle = GCHandle.Alloc(_callback);
+        var wc = new WndClass { cbSize = (uint)Marshal.SizeOf<WndClass>(), lpfnWndProc = Marshal.GetFunctionPointerForDelegate(_callback), hInstance = Marshal.GetHINSTANCE(typeof(ClipboardMonitor).Module), className = "MaskitClipboardMonitor" };
+        RegisterClassEx(ref wc);
+        _hwnd = CreateWindowEx(0, wc.className, "Maskit Clipboard Monitor", 0, 0, 0, 0, 0, MessageWindow, IntPtr.Zero, wc.hInstance, IntPtr.Zero);
+        if (_hwnd != IntPtr.Zero && !AddClipboardFormatListener(_hwnd)) Console.Error.WriteLine("Clipboard listener registration failed");
+    }
+
+    private IntPtr WindowProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam) { if (msg == WmClipboardUpdate) TryProcessClipboard(); return DefWindowProc(hwnd, msg, wParam, lParam); }
+
+    private void TryProcessClipboard()
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
         {
-            Console.Error.WriteLine($"ClipboardMonitor message loop error: {ex.Message}");
-        }
-        finally
-        {
-            _windowCreatedEvent.Set();
+            if (OpenClipboard(IntPtr.Zero)) { try { ProcessOpenClipboard(); return; } finally { CloseClipboard(); } }
+            Thread.Sleep(15 * (attempt + 1));
         }
     }
 
-    private void CreateMessageWindow()
+    private void ProcessOpenClipboard()
     {
-        _wndProcDelegate = WndProc;
-        _wndProcHandle = GCHandle.Alloc(_wndProcDelegate);
-
-        var wc = new WNDCLASSEX
-        {
-            cbSize = (uint)Marshal.SizeOf<WNDCLASSEX>(),
-            lpfnWndProc = Marshal.GetFunctionPointerForDelegate(_wndProcDelegate),
-            hInstance = Marshal.GetHINSTANCE(typeof(ClipboardMonitor).Module),
-            lpszClassName = "MaskitClipboardMonitor"
-        };
-
-        ushort classAtom = RegisterClassEx(ref wc);
-        if (classAtom == 0)
-        {
-            // Class already registered, that's fine
-        }
-
-        // Create a message-only window
-        _hwnd = CreateWindowEx(
-            0,
-            "MaskitClipboardMonitor",
-            "Maskit Clipboard Monitor",
-            0,
-            0, 0, 0, 0,
-            HWND_MESSAGE,
-            IntPtr.Zero,
-            wc.hInstance,
-            IntPtr.Zero);
-
-        if (_hwnd == IntPtr.Zero)
-        {
-            int error = Marshal.GetLastWin32Error();
-            Console.Error.WriteLine($"ClipboardMonitor: CreateWindowEx failed with error {error}");
-            return;
-        }
-
-        // Register for clipboard update notifications
-        if (!AddClipboardFormatListener(_hwnd))
-        {
-            int error = Marshal.GetLastWin32Error();
-            Console.Error.WriteLine($"ClipboardMonitor: AddClipboardFormatListener failed with error {error}");
-        }
-    }
-
-    private void CleanupWindow()
-    {
-        if (_hwnd != IntPtr.Zero)
-        {
-            RemoveClipboardFormatListener(_hwnd);
-            DestroyWindow(_hwnd);
-            _hwnd = IntPtr.Zero;
-        }
-
-        if (_wndProcHandle.IsAllocated)
-        {
-            _wndProcHandle.Free();
-        }
-    }
-
-    private IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
-    {
-        if (msg == WM_CLIPBOARDUPDATE)
-        {
-            CheckClipboard();
-        }
-        return DefWindowProc(hWnd, msg, wParam, lParam);
-    }
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr DefWindowProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
-
-    private void CheckClipboard()
-    {
-        if (!NativeMethods.OpenClipboard(IntPtr.Zero))
-            return;
-
+        var data = GetClipboardData(CfUnicodeText);
+        if (data == IntPtr.Zero) return;
+        var ptr = GlobalLock(data);
+        if (ptr == IntPtr.Zero) return;
         try
         {
-            var hData = NativeMethods.GetClipboardData(CF_UNICODETEXT);
-            if (hData == IntPtr.Zero) return;
-
-            var ptr = NativeMethods.GlobalLock(hData);
-            if (ptr == IntPtr.Zero) return;
-
-            try
-            {
-                var text = Marshal.PtrToStringUni(ptr);
-                if (string.IsNullOrEmpty(text)) return;
-                if (text == _lastClipboardText) return; // Same text, skip
-
-                _lastClipboardText = text;
-                ProcessClipboardText(text);
-            }
-            finally
-            {
-                NativeMethods.GlobalUnlock(hData);
-            }
+            var text = Marshal.PtrToStringUni(ptr);
+            if (string.IsNullOrEmpty(text) || text == _lastText) return;
+            _lastText = text;
+            var context = _foreground.GetForegroundContext();
+            var result = _core.Scan(text, context, "windows-clipboard");
+            if (result.Findings.Count == 0) return;
+            foreach (var evt in result.AuditEvents) _audit.LogEvent(new AuditEvent { Type = evt.Type, Severity = evt.Severity, Source = evt.Source, App = evt.App, Action = evt.Action, RiskScore = evt.RiskScore, MatchedRule = evt.MatchedRule, PolicyApplied = evt.PolicyApplied });
+            if (result.RedactedText == text) return;
+            ReplaceClipboard(result.RedactedText);
+            OnRedaction?.Invoke(context.ProcessName, result.Findings.Count);
         }
-        finally
-        {
-            NativeMethods.CloseClipboard();
-        }
+        finally { GlobalUnlock(data); }
     }
 
-    private void ProcessClipboardText(string text)
+    private static void ReplaceClipboard(string text)
     {
-        // Scan with rule engine
-        var findings = _ruleEngine.Scan(text);
-        if (findings.Count == 0) return;
-
-        // Get foreground app context
-        var appContext = _foregroundDetector.GetForegroundContext();
-
-        // Evaluate policy for each finding
-        var decisions = _policyEngine.Evaluate(findings, appContext);
-
-        // Check if any action is needed
-        bool needsRedaction = false;
-        foreach (var decision in decisions)
-        {
-            if (decision.Action == "redact" || decision.Action == "block")
-            {
-                needsRedaction = true;
-                break;
-            }
-        }
-
-        if (!needsRedaction)
-        {
-            // All allowed — log and exit
-            foreach (var decision in decisions)
-            {
-                _auditLogger.LogEvent(new AuditEvent
-                {
-                    Type = decision.Finding.Type,
-                    Severity = decision.Finding.Severity,
-                    Source = "clipboard",
-                    App = appContext.ProcessName,
-                    Action = "allowed",
-                    RiskScore = CalculateRiskScore(findings),
-                    MatchedRule = decision.Finding.Type,
-                    PolicyApplied = appContext.ProcessName,
-                    AppContext = new AppContextInfo
-                    {
-                        ProcessName = appContext.ProcessName,
-                        AiDetected = appContext.AiDetected,
-                        AiConfidence = appContext.AiConfidence,
-                        IsLocal = appContext.IsLocal
-                    }
-                });
-            }
-            return;
-        }
-
-        // Redact the text
-        var redacted = text;
-        foreach (var decision in decisions)
-        {
-            if (decision.Action == "redact")
-            {
-                redacted = redacted.Replace(decision.Finding.Value, $"[{decision.Finding.Type}_REDACTED]");
-            }
-            else if (decision.Action == "block")
-            {
-                redacted = redacted.Replace(decision.Finding.Value, "[BLOCKED]");
-            }
-        }
-
-        // Replace clipboard with redacted version
-        SetClipboardText(redacted);
-
-        // Audit log
-        foreach (var decision in decisions)
-        {
-            if (decision.Action != "allowed")
-            {
-                _auditLogger.LogEvent(new AuditEvent
-                {
-                    Type = decision.Finding.Type,
-                    Severity = decision.Finding.Severity,
-                    Source = "clipboard",
-                    App = appContext.ProcessName,
-                    Action = decision.Action == "redact" ? "redacted" : "blocked",
-                    RiskScore = CalculateRiskScore(findings),
-                    MatchedRule = decision.Finding.Type,
-                    PolicyApplied = appContext.ProcessName,
-                    AppContext = new AppContextInfo
-                    {
-                        ProcessName = appContext.ProcessName,
-                        AiDetected = appContext.AiDetected,
-                        AiConfidence = appContext.AiConfidence,
-                        IsLocal = appContext.IsLocal
-                    }
-                });
-            }
-        }
-
-        OnRedaction?.Invoke(appContext.ProcessName, decisions.Count);
-    }
-
-    private static void SetClipboardText(string text)
-    {
-        if (!NativeMethods.OpenClipboard(IntPtr.Zero))
-            return;
-
+        if (!OpenClipboard(IntPtr.Zero)) return;
         try
         {
-            NativeMethods.EmptyClipboard();
-            var hGlobal = NativeMethods.GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, (nuint)((text.Length + 1) * 2));
-            if (hGlobal == IntPtr.Zero) return;
-
-            var ptr = NativeMethods.GlobalLock(hGlobal);
-            if (ptr == IntPtr.Zero)
-            {
-                NativeMethods.GlobalFree(hGlobal);
-                return;
-            }
-
-            Marshal.Copy(text.ToCharArray(), 0, ptr, text.Length);
-            Marshal.WriteInt16(ptr + text.Length * 2, 0); // Null terminator
-            NativeMethods.GlobalUnlock(hGlobal);
-            NativeMethods.SetClipboardData(CF_UNICODETEXT, hGlobal);
+            EmptyClipboard();
+            var bytes = (nuint)((text.Length + 1) * 2);
+            var handle = GlobalAlloc(GmemMoveable | GmemZeroInit, bytes);
+            if (handle == IntPtr.Zero) return;
+            var ptr = GlobalLock(handle);
+            if (ptr == IntPtr.Zero) { GlobalFree(handle); return; }
+            try { Marshal.Copy(text.ToCharArray(), 0, ptr, text.Length); Marshal.WriteInt16(ptr + text.Length * 2, 0); }
+            finally { GlobalUnlock(handle); }
+            if (SetClipboardData(CfUnicodeText, handle) == IntPtr.Zero) GlobalFree(handle);
         }
-        finally
-        {
-            NativeMethods.CloseClipboard();
-        }
+        finally { CloseClipboard(); }
     }
 
-    private static int CalculateRiskScore(System.Collections.Generic.List<Finding> findings)
-    {
-        int score = 0;
-        foreach (var f in findings)
-        {
-            score += f.Severity switch
-            {
-                "critical" => 50,
-                "high" => 25,
-                "medium" => 10,
-                "low" => 5,
-                _ => 10
-            };
-        }
-        return Math.Min(100, score);
-    }
+    private void Cleanup()
+    { if (_hwnd != IntPtr.Zero) { RemoveClipboardFormatListener(_hwnd); DestroyWindow(_hwnd); _hwnd = IntPtr.Zero; } if (_callbackHandle.IsAllocated) _callbackHandle.Free(); _ready.Dispose(); }
+    public void Dispose() { Stop(); }
 
-    public void Dispose()
-    {
-        Stop();
-        _windowCreatedEvent.Dispose();
-    }
-}
-
-/// <summary>
-/// Win32 native methods for clipboard access.
-/// </summary>
-internal static class NativeMethods
-{
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern bool OpenClipboard(IntPtr hWndNewOwner);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern bool CloseClipboard();
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern IntPtr GetClipboardData(uint uFormat);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern bool EmptyClipboard();
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern IntPtr GlobalLock(IntPtr hMem);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern bool GlobalUnlock(IntPtr hMem);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern IntPtr GlobalAlloc(uint uFlags, nuint dwBytes);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern IntPtr GlobalFree(IntPtr hMem);
+    [StructLayout(LayoutKind.Sequential)] private struct WndClass { public uint cbSize, style; public IntPtr lpfnWndProc; public int cbClsExtra, cbWndExtra; public IntPtr hInstance, hIcon, hCursor, background; [MarshalAs(UnmanagedType.LPWStr)] public string? menuName; [MarshalAs(UnmanagedType.LPWStr)] public string? className; public IntPtr iconSm; }
+    [StructLayout(LayoutKind.Sequential)] private struct Msg { public IntPtr hWnd; public uint message; public IntPtr wParam, lParam; public uint time; public Point point; }
+    [StructLayout(LayoutKind.Sequential)] private struct Point { public int x, y; }
+    private delegate IntPtr WndProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)] private static extern ushort RegisterClassEx(ref WndClass cls);
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)] private static extern IntPtr CreateWindowEx(uint ex, string? cls, string? name, uint style, int x, int y, int w, int h, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
+    [DllImport("user32.dll")] private static extern bool DestroyWindow(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern bool AddClipboardFormatListener(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern bool GetMessage(out Msg msg, IntPtr hwnd, uint min, uint max);
+    [DllImport("user32.dll")] private static extern bool TranslateMessage(ref Msg msg);
+    [DllImport("user32.dll")] private static extern IntPtr DispatchMessage(ref Msg msg);
+    [DllImport("user32.dll")] private static extern IntPtr DefWindowProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] private static extern bool OpenClipboard(IntPtr owner);
+    [DllImport("user32.dll")] private static extern bool CloseClipboard();
+    [DllImport("user32.dll")] private static extern IntPtr GetClipboardData(uint format);
+    [DllImport("user32.dll")] private static extern IntPtr SetClipboardData(uint format, IntPtr handle);
+    [DllImport("user32.dll")] private static extern bool EmptyClipboard();
+    [DllImport("kernel32.dll")] private static extern IntPtr GlobalLock(IntPtr handle);
+    [DllImport("kernel32.dll")] private static extern bool GlobalUnlock(IntPtr handle);
+    [DllImport("kernel32.dll")] private static extern IntPtr GlobalAlloc(uint flags, nuint bytes);
+    [DllImport("kernel32.dll")] private static extern IntPtr GlobalFree(IntPtr handle);
 }

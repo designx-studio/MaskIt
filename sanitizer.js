@@ -23,3 +23,7 @@ function sanitizeText(text, findings, settings) {
 
   return sanitized;
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { sanitizeText, getRedactionText };
+}
