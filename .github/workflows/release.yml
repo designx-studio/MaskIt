@@ -13,11 +13,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - run: dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/maskit-extension.zip
+          files: |
+            dist/maskit-chrome.zip
+            dist/maskit-firefox.zip
+            dist/maskit-edge.zip
+            dist/maskit-opera.zip
+            dist/maskit-mcp.tar.gz
           generate_release_notes: true

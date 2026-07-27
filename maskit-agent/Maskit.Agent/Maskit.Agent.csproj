@@ -1,23 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Maskit.Agent</RootNamespace>
     <AssemblyName>Maskit.Agent</AssemblyName>
     <Version>2.4.0</Version>
-    <Description>Maskit Windows Agent — System-wide AI clipboard protection</Description>
+    <Description>Maskit Windows Agent, system-wide AI clipboard protection</Description>
     <Company>Maskit</Company>
     <Product>Maskit Agent</Product>
-    <ApplicationIcon />
     <StartupObject>Maskit.Agent.Program</StartupObject>
   </PropertyGroup>
-
   <ItemGroup>
     <None Include="..\..\maskit-core\**\*.json" Link="maskit-core\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-
 </Project>

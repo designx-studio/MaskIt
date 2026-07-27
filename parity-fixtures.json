@@ -1,0 +1,40 @@
+// Shared test fixtures for ensuring detection parity across runtimes
+{
+  "api_keys": {
+    "openai": {
+      "input": "My key is sk-proj-1234567890abcdef1234567890abcdef12345678",
+      "findings": [{"type": "API_KEY", "value": "sk-proj-1234567890abcdef1234567890abcdef12345678"}],
+      "redacted_tagged": "My key is [API_KEY_REDACTED]",
+      "redacted_stars": "My key is ***"
+    },
+    "github": {
+      "input": "Token ghp_1234567890abcdef1234567890abcdef12345678 for access",
+      "findings": [{"type": "API_KEY", "value": "ghp_1234567890abcdef1234567890abcdef12345678"}],
+      "redacted_tagged": "Token [API_KEY_REDACTED] for access",
+      "redacted_stars": "Token *** for access"
+    }
+  },
+  "pii": {
+    "email": {
+      "input": "Contact me at dev@designx.co.ke ASAP",
+      "findings": [{"type": "EMAIL", "value": "dev@designx.co.ke"}],
+      "redacted_tagged": "Contact me at [EMAIL_REDACTED] ASAP",
+      "redacted_stars": "Contact me at *** ASAP"
+    },
+    "credit_card": {
+      "input": "Here is the card 4111 1111 1111 1111 for processing",
+      "findings": [{"type": "CARD", "value": "4111 1111 1111 1111"}],
+      "redacted_tagged": "Here is the card [CARD_REDACTED] for processing",
+      "redacted_stars": "Here is the card *** for processing"
+    }
+  },
+  "custom": {
+    "project_id": {
+      "rule": {"id": "proj_id", "pattern": "PROJ-[A-Z]{4}-\\d{4}"},
+      "input": "Working on PROJ-ABCD-1234 today",
+      "findings": [{"type": "CUSTOM:proj_id", "value": "PROJ-ABCD-1234"}],
+      "redacted_tagged": "Working on [proj_id_REDACTED] today",
+      "redacted_stars": "Working on *** today"
+    }
+  }
+}
