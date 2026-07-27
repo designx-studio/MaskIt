@@ -33,13 +33,21 @@ public class RuleEngine
             var type = ruleElement.TryGetProperty("type", out var t) ? t.GetString() ?? "unknown" : "unknown";
             var severity = ruleElement.TryGetProperty("severity", out var s) ? s.GetString() ?? "medium" : "medium";
             var validator = ruleElement.TryGetProperty("validator", out var v) ? v.GetString() ?? "none" : "none";
-            try
-            {
-                var options = RegexOptions.Compiled | (flags.Contains("i") ? RegexOptions.IgnoreCase : RegexOptions.None);
-                _rules.Add(new CompiledRule { Id = id, Name = name, Regex = new Regex(pattern, options), Type = type, Severity = severity, Validator = validator });
-            }
-            catch (Exception ex) { Console.Error.WriteLine($"Failed to compile rule {id}: {ex.Message}"); }
+            TryAddRule(id, name, pattern, flags, type, severity, validator);
         }
+    }
+
+    public void AddRuntimeRule(string id, string pattern, string name = "Custom rule", string severity = "medium")
+        => TryAddRule("CUSTOM:" + id, name, pattern, "gi", "custom", severity, "none");
+
+    private void TryAddRule(string id, string name, string pattern, string flags, string type, string severity, string validator)
+    {
+        try
+        {
+            var options = RegexOptions.Compiled | (flags.Contains("i", StringComparison.OrdinalIgnoreCase) ? RegexOptions.IgnoreCase : RegexOptions.None);
+            _rules.Add(new CompiledRule { Id = id, Name = name, Regex = new Regex(pattern, options), Type = type, Severity = severity, Validator = validator });
+        }
+        catch (Exception ex) { Console.Error.WriteLine($"Failed to compile rule {id}: {ex.Message}"); }
     }
 
     public List<Finding> Scan(string text)
@@ -81,9 +89,9 @@ public class RuleEngine
     private static bool ValidateIpAddress(string value)
     {
         var parts = value.Split('.');
-        if (parts.Length != 4 || !parts.All((part) => int.TryParse(part, out _))) return false;
+        if (parts.Length != 4 || !parts.All(part => int.TryParse(part, out _))) return false;
         var numbers = parts.Select(int.Parse).ToArray();
-        return numbers.All((number) => number >= 0 && number <= 255) && numbers.Any((number) => number >= 12) && numbers[0] != 127 && numbers.Any((number) => number != 0);
+        return numbers.All(number => number >= 0 && number <= 255) && numbers.Any(number => number >= 12) && numbers[0] != 127 && numbers.Any(number => number != 0);
     }
 
     private static bool ValidateMpesa(string value)
