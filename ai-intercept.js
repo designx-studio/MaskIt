@@ -24,13 +24,13 @@
     // ── Load settings ──────────────────────────────────────────────────────
 
     try {
-        chrome.storage.sync.get(MASKIT_DEFAULTS, (items) => {
+        chrome.storage.local.get(MASKIT_DEFAULTS, (items) => {
             aiSettings = items;
             isEnabled = items.browserAIProtection !== false;
         });
         chrome.storage.onChanged.addListener((changes, area) => {
-            if (area === "sync") {
-                chrome.storage.sync.get(MASKIT_DEFAULTS, (items) => {
+            if (area === "local") {
+                chrome.storage.local.get(MASKIT_DEFAULTS, (items) => {
                     aiSettings = items;
                     isEnabled = items.browserAIProtection !== false;
                 });

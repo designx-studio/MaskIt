@@ -5,7 +5,7 @@
         {
             "id": "CARD",
             "name": "Credit/debit card numbers",
-            "pattern": "\\b(?:\\d[ -]*?){13,16}\\b",
+            "pattern": "\\b\\d{4}-\\d{4}-\\d{4}-\\d{4}\\b|\\b\\d{4} \\d{4} \\d{4} \\d{4}\\b|\\b\\d{13,16}\\b",
             "flags": "g",
             "type": "financial",
             "severity": "critical",

@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - `scanText()` now returns `events`, `policyDecisions`, `allFindings` alongside existing fields
 - `evaluatePolicy()` now returns `blocked`, `redacted`, `allowedByPolicy` counts
 - `redactText()` now applies policy decisions (allow items are not redacted)
-- MCP server now has 8 tools (was 6): added `scan_response` and `get_audit_log`
+- MCP server now has 6 tools
 - Options page now includes Audit Log, Role-Based Policies, and Config Sync sections
 - Background script manages audit log storage with automatic pruning
 

@@ -95,7 +95,18 @@ const AUDIT_LOG_DEFAULTS = {
  * @param {string} [opts.value] - Original value (hashed for unmasking)
  * @returns {Object} Structured audit event
  */
-function createAuditEvent({ type, severity, source, app, action, riskScore, matchedRule, policyApplied, value }) {
+/**
+ * Compute chain hash for audit event tamper detection.
+ * chainHash = SHA-256(previous_event_chainHash + current_event_id + current_event_timestamp)
+ * First event uses "0" as the previous hash.
+ */
+function computeChainHash(previousHash, eventId, timestamp) {
+    const input = (previousHash || "0") + eventId + timestamp;
+    const hash = crypto.createHash("sha256").update(input).digest("hex");
+    return hash;
+}
+
+function createAuditEvent({ type, severity, source, app, action, riskScore, matchedRule, policyApplied, value, saltProvider, chainHash }) {
     return {
         id: "evt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
         timestamp: Date.now(),
@@ -107,9 +118,10 @@ function createAuditEvent({ type, severity, source, app, action, riskScore, matc
         riskScore: Number(riskScore) || 0,
         matchedRule: String(matchedRule || ""),
         policyApplied: String(policyApplied || "default"),
-        unmaskToken: value ? hashSensitive(value) : null,
+        unmaskToken: value ? hashSensitive(value, saltProvider) : null,
         unmaskedAt: null,
-        unmaskedDuration: null
+        unmaskedDuration: null,
+        chainHash: chainHash || null
     };
 }
 
@@ -117,23 +129,91 @@ function createAuditEvent({ type, severity, source, app, action, riskScore, matc
  * Deterministic hash for unmasking tokens.
  * Same value + salt always produces the same token.
  * Raw values are never stored.
+ *
+ * Uses SHA-256 (cryptographic) with a per-installation random salt.
+ * In Node.js: uses crypto.createHash (sync).
+ * In browser: uses crypto.subtle.digest (async) — see hashSensitiveAsync().
  */
-function hashSensitive(value, salt) {
-    const s = salt || "maskit";
-    const input = String(value || "") + s;
-    // Simple FNV-1a hash for browser/Node compatibility (no crypto dependency)
+const crypto = require("crypto");
+
+let _hashSalt = null;
+
+function getHashSalt(saltProvider) {
+    if (_hashSalt) return _hashSalt;
+
+    // Try to get salt from provider (config in Node, chrome.storage in browser)
+    if (saltProvider && typeof saltProvider.getHashSalt === "function") {
+        _hashSalt = saltProvider.getHashSalt();
+    }
+
+    if (!_hashSalt) {
+        // Generate random 32-byte salt
+        if (typeof crypto !== "undefined" && crypto.randomBytes) {
+            // Node.js
+            _hashSalt = crypto.randomBytes(32).toString("hex");
+        } else if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+            // Browser
+            const arr = new Uint8Array(32);
+            crypto.getRandomValues(arr);
+            _hashSalt = Array.from(arr).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+        } else {
+            // Fallback (should not happen in modern environments)
+            _hashSalt = "fallback-salt-" + Date.now() + Math.random();
+        }
+
+        // Save salt
+        if (saltProvider && typeof saltProvider.setHashSalt === "function") {
+            saltProvider.setHashSalt(_hashSalt);
+        }
+    }
+
+    return _hashSalt;
+}
+
+function hashSensitive(value, saltProvider) {
+    if (!value) return "";
+
+    const salt = getHashSalt(saltProvider);
+
+    // Node.js: use crypto.createHash (sync)
+    if (typeof crypto !== "undefined" && crypto.createHash) {
+        return crypto
+            .createHash("sha256")
+            .update(String(value) + salt)
+            .digest("hex");
+    }
+
+    // Browser fallback: use a simple hash (should use hashSensitiveAsync instead)
+    // This is a non-cryptographic fallback for environments without crypto.subtle
+    const input = String(value) + salt;
     let hash = 0x811c9dc5;
     for (let i = 0; i < input.length; i++) {
         hash ^= input.charCodeAt(i);
         hash = (hash * 0x01000193) >>> 0;
     }
-    // Extend to 64-bit by mixing with second seed
-    let hash2 = 0x62b8d1e9;
-    for (let i = 0; i < input.length; i++) {
-        hash2 ^= input.charCodeAt(i);
-        hash2 = (hash2 * 0x01000193) >>> 0;
+    return hash.toString(16).padStart(8, "0");
+}
+
+/**
+ * Async hash for browser environments using crypto.subtle.
+ * Same value + salt always produces the same token.
+ */
+async function hashSensitiveAsync(value, saltProvider) {
+    if (!value) return "";
+
+    const salt = getHashSalt(saltProvider);
+
+    // Browser: crypto.subtle.digest (async)
+    if (typeof crypto !== "undefined" && crypto.subtle && typeof crypto.subtle.digest === "function") {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(String(value) + salt);
+        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
     }
-    return hash.toString(16).padStart(8, "0") + hash2.toString(16).padStart(8, "0");
+
+    // Fallback to sync version (Node.js)
+    return hashSensitive(value, saltProvider);
 }
 
 /**
@@ -420,6 +500,8 @@ module.exports = {
     AUDIT_LOG_DEFAULTS,
     createAuditEvent,
     hashSensitive,
+    hashSensitiveAsync,
+    getHashSalt,
     pruneAuditLog,
     POLICY_ACTIONS,
     MASKIT_POLICY_DEFAULTS,

@@ -86,9 +86,21 @@ function saveAuditLog(auditLog) {
   chrome.storage.local.set({ auditLog });
 }
 
-function recordAuditEvent(event) {
+async function computeChainHash(previousHash, eventId, timestamp) {
+  const input = (previousHash || "0") + eventId + timestamp;
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function recordAuditEvent(event) {
   if (!event) return;
-  getAuditLog((auditLog) => {
+  getAuditLog(async (auditLog) => {
+    const events = auditLog.events || [];
+    const previousHash = events.length > 0 ? events[events.length - 1].chainHash : null;
+    event.chainHash = await computeChainHash(previousHash, event.id, event.timestamp);
     auditLog.events.push(event);
     // Prune old events
     const retention = auditLog.retentionDays || 30;
@@ -98,14 +110,19 @@ function recordAuditEvent(event) {
   });
 }
 
-function recordAuditEvents(events) {
+async function recordAuditEvents(events) {
   if (!events || !events.length) return;
-  getAuditLog((auditLog) => {
-    auditLog.events = auditLog.events.concat(events);
+  getAuditLog(async (auditLog) => {
+    const existing = auditLog.events || [];
+    for (const event of events) {
+      const previousHash = existing.length > 0 ? existing[existing.length - 1].chainHash : null;
+      event.chainHash = await computeChainHash(previousHash, event.id, event.timestamp);
+      existing.push(event);
+    }
     // Prune old events
     const retention = auditLog.retentionDays || 30;
     const cutoff = Date.now() - retention * 24 * 60 * 60 * 1000;
-    auditLog.events = auditLog.events.filter((e) => e.timestamp >= cutoff);
+    auditLog.events = existing.filter((e) => e.timestamp >= cutoff);
     saveAuditLog(auditLog);
   });
 }
@@ -177,7 +194,7 @@ function applyBadge(tabId, active, paused) {
 
 function updateActionBadge(tabId) {
   getPauseState((paused) => {
-    chrome.storage.sync.get(MASKIT_DEFAULTS, (settings) => {
+    chrome.storage.local.get(MASKIT_DEFAULTS, (settings) => {
       if (typeof tabId === "number") {
         chrome.tabs.get(tabId, (tab) => {
           if (chrome.runtime.lastError || !tab) return;
@@ -205,7 +222,7 @@ chrome.runtime.onInstalled.addListener(() => updateActionBadge());
 chrome.runtime.onStartup.addListener(() => updateActionBadge());
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "sync") updateActionBadge();
+  if (area === "local") updateActionBadge();
 });
 
 chrome.tabs.onActivated.addListener(({ tabId }) => updateActionBadge(tabId));
@@ -213,6 +230,139 @@ chrome.tabs.onActivated.addListener(({ tabId }) => updateActionBadge(tabId));
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.url || changeInfo.status === "complete") updateActionBadge(tabId);
 });
+
+// ── Config import validation ──────────────────────────────────────────────
+
+function validateConfigImport(settings) {
+  const errors = [];
+  const validated = {};
+
+  // Whitelist of allowed settings keys
+  const allowedKeys = [
+    "enabled", "scanPaste", "scanCopy", "scanTyping",
+    "reviewBeforeRedact", "redactFormat", "customRedactText",
+    "siteListMode", "siteList",
+    "EMAIL", "PHONE", "CARD", "MPESA", "SSN", "API_KEY", "IP_ADDRESS", "PASSPORT", "BANK_ACCOUNT",
+    "customRules", "killswitch", "policies", "pauseAutoResume", "pauseAutoResumeSecs",
+    "browserAIProtection", "severity"
+  ];
+
+  if (typeof settings !== "object" || settings === null) {
+    return { valid: false, errors: ["Settings must be an object"], settings: {} };
+  }
+
+  for (const [key, value] of Object.entries(settings)) {
+    // Check if key is allowed
+    if (!allowedKeys.includes(key)) {
+      errors.push("Unknown setting key: " + key);
+      continue;
+    }
+
+    // Type validation for specific keys
+    if (key === "customRules") {
+      if (!Array.isArray(value)) {
+        errors.push("customRules must be an array");
+        continue;
+      }
+      // Validate each rule's regex pattern
+      const validRules = [];
+      for (const rule of value) {
+        if (!rule || !rule.pattern || !rule.name) {
+          errors.push("Custom rule missing pattern or name");
+          continue;
+        }
+        const regexCheck = validateCustomRegexPattern(rule.pattern);
+        if (!regexCheck.ok) {
+          errors.push("Invalid regex in rule '" + rule.name + "': " + regexCheck.error);
+          continue;
+        }
+        validRules.push(rule);
+      }
+      validated[key] = validRules;
+      continue;
+    }
+
+    if (key === "siteList") {
+      if (!Array.isArray(value)) {
+        errors.push("siteList must be an array");
+        continue;
+      }
+      validated[key] = value.filter((s) => typeof s === "string");
+      continue;
+    }
+
+    if (key === "siteListMode") {
+      if (!["all", "allowlist", "blocklist"].includes(value)) {
+        errors.push("siteListMode must be 'all', 'allowlist', or 'blocklist'");
+        continue;
+      }
+      validated[key] = value;
+      continue;
+    }
+
+    if (key === "redactFormat") {
+      if (!["tagged", "stars", "custom"].includes(value)) {
+        errors.push("redactFormat must be 'tagged', 'stars', or 'custom'");
+        continue;
+      }
+      validated[key] = value;
+      continue;
+    }
+
+    if (key === "killswitch") {
+      if (typeof value !== "object" || value === null) {
+        errors.push("killswitch must be an object");
+        continue;
+      }
+      validated[key] = value;
+      continue;
+    }
+
+    if (key === "policies") {
+      if (typeof value !== "object" || value === null) {
+        errors.push("policies must be an object");
+        continue;
+      }
+      validated[key] = value;
+      continue;
+    }
+
+    if (key === "severity") {
+      if (typeof value !== "object" || value === null) {
+        errors.push("severity must be an object");
+        continue;
+      }
+      validated[key] = value;
+      continue;
+    }
+
+    // Boolean flags (EMAIL, PHONE, CARD, enabled, etc.)
+    if (typeof value === "boolean") {
+      validated[key] = value;
+      continue;
+    }
+
+    // String values (customRedactText)
+    if (typeof value === "string") {
+      validated[key] = value;
+      continue;
+    }
+
+    // Number values (pauseAutoResumeSecs)
+    if (typeof value === "number") {
+      validated[key] = value;
+      continue;
+    }
+
+    errors.push("Unexpected type for '" + key + "': " + typeof value);
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    settings: validated
+  };
+}
 
 // ── Message handlers ──────────────────────────────────────────────────────
 
@@ -282,7 +432,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // ── Config export/import ───────────────────────────────────────────────
 
   if (message.type === "EXPORT_CONFIG") {
-    chrome.storage.sync.get(MASKIT_DEFAULTS, (settings) => {
+    chrome.storage.local.get(MASKIT_DEFAULTS, (settings) => {
       const exportData = {
         version: "2.4.0",
         exportDate: new Date().toISOString(),
@@ -294,14 +444,36 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === "IMPORT_CONFIG") {
-    if (message.config && message.config.settings) {
-      chrome.storage.sync.set(message.config.settings, () => {
-        updateActionBadge();
-        sendResponse({ ok: true });
-      });
-    } else {
+    if (!message.config || !message.config.settings) {
       sendResponse({ ok: false, error: "Invalid config format" });
+      return true;
     }
+
+    // Validate against schema
+    const validation = validateConfigImport(message.config.settings);
+    if (!validation.valid) {
+      sendResponse({ ok: false, error: "Invalid config: " + validation.errors.join(", ") });
+      return true;
+    }
+
+    // Log the import attempt to audit log
+    getAuditLog((auditLog) => {
+      auditLog.events.push({
+        id: "evt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+        timestamp: Date.now(),
+        type: "CONFIG_IMPORT",
+        action: "imported",
+        settingsCount: Object.keys(validation.settings).length,
+        customRulesCount: (validation.settings.customRules || []).length
+      });
+      saveAuditLog(auditLog);
+    });
+
+    // Apply validated config
+    chrome.storage.local.set(validation.settings, () => {
+      updateActionBadge();
+      sendResponse({ ok: true, appliedSettings: Object.keys(validation.settings).length });
+    });
     return true;
   }
 
@@ -342,7 +514,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const hostname = message.hostname;
     if (!hostname) { sendResponse({ ok: false }); return true; }
 
-    chrome.storage.sync.get(MASKIT_DEFAULTS, (settings) => {
+    chrome.storage.local.get(MASKIT_DEFAULTS, (settings) => {
       const list = [...(settings.siteList || [])].map((e) => String(e).trim()).filter(Boolean);
       const mode = settings.siteListMode || "all";
 
@@ -358,7 +530,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         newMode = "blocklist";
       }
 
-      chrome.storage.sync.set({ siteList: newList, siteListMode: newMode }, () => {
+      chrome.storage.local.set({ siteList: newList, siteListMode: newMode }, () => {
         updateActionBadge();
         sendResponse({ ok: true });
       });
@@ -385,8 +557,8 @@ try {
 
 chrome.commands.onCommand.addListener((command) => {
   if (command === "toggle-protection") {
-    chrome.storage.sync.get(MASKIT_DEFAULTS, (items) => {
-      chrome.storage.sync.set({ enabled: !items.enabled }, () => updateActionBadge());
+    chrome.storage.local.get(MASKIT_DEFAULTS, (items) => {
+      chrome.storage.local.set({ enabled: !items.enabled }, () => updateActionBadge());
     });
     return;
   }

@@ -86,37 +86,12 @@ const TOOLS = [
         }
     },
     {
-        name: "update_rules",
-        description: "Update custom detection rules. Replaces all custom rules with the provided list.",
-        inputSchema: {
-            type: "object",
-            properties: {
-                customRules: {
-                    type: "array",
-                    items: {
-                        type: "object",
-                        properties: {
-                            id: { type: "string" },
-                            name: { type: "string" },
-                            pattern: { type: "string" },
-                            enabled: { type: "boolean" }
-                        },
-                        required: ["name", "pattern"]
-                    },
-                    description: "Array of custom rules to set"
-                }
-            },
-            required: ["customRules"]
-        }
-    },
-    {
         name: "get_audit_log",
-        description: "Get the audit log of all redaction and policy events.",
+        description: "Get recent audit log events from the MCP server's audit log. Returns the last 50 events by default.",
         inputSchema: {
             type: "object",
             properties: {
-                limit: { type: "number", description: "Max events to return (default 100)" },
-                type: { type: "string", description: "Filter by data type (e.g. 'EMAIL', 'API_KEY')" }
+                limit: { type: "number", description: "Maximum number of events to return (default: 50)" }
             },
             required: []
         }
@@ -286,24 +261,51 @@ function handleGetRules() {
     };
 }
 
-function handleUpdateRules(args) {
-    const settings = config.readConfig();
-    const updated = engine.updateRules(args.customRules, settings);
+function handleGetAuditLog(args) {
+    const limit = args.limit || 50;
+    const auditLogPath = path.join(config.getConfigDir(), "audit.log");
 
-    const writeResult = config.writeConfig(Object.assign({}, settings, {
-        customRules: updated.customRules
-    }));
+    try {
+        if (!fs.existsSync(auditLogPath)) {
+            return {
+                content: [{
+                    type: "text",
+                    text: JSON.stringify({ events: [], total: 0, path: auditLogPath })
+                }]
+            };
+        }
 
-    return {
-        content: [{
-            type: "text",
-            text: JSON.stringify({
-                ok: writeResult.ok,
-                customRules: updated.customRules,
-                error: writeResult.error || undefined
-            }, null, 2)
-        }]
-    };
+        const lines = fs.readFileSync(auditLogPath, "utf8").split("\n").filter((line) => line.trim());
+        const events = [];
+
+        // Read last N events (from end of file)
+        const start = Math.max(0, lines.length - limit);
+        for (let i = start; i < lines.length; i++) {
+            try {
+                const evt = JSON.parse(lines[i]);
+                events.push(evt);
+            } catch { }
+        }
+
+        return {
+            content: [{
+                type: "text",
+                text: JSON.stringify({
+                    events: events,
+                    total: events.length,
+                    path: auditLogPath
+                }, null, 2)
+            }]
+        };
+    } catch (err) {
+        return {
+            content: [{
+                type: "text",
+                text: JSON.stringify({ error: err.message, path: auditLogPath })
+            }],
+            isError: true
+        };
+    }
 }
 
 function handleScanResponse(args) {
@@ -337,28 +339,6 @@ function handleScanResponse(args) {
                     ? "Response contains potential secrets: " + result.findings.length + " finding(s). " +
                     (recommendation === "warn" ? "WARNING: Critical credentials detected — check before copying." : "Review recommended.")
                     : "No sensitive data detected in response."
-            }, null, 2)
-        }]
-    };
-}
-
-function handleGetAuditLog(args) {
-    const limit = args.limit || 100;
-    const filterType = args.type || null;
-
-    // For MCP server, return a summary since audit log lives on browser
-    // This provides the API surface for future central audit sync
-    const status = engine.getStatus();
-
-    return {
-        content: [{
-            type: "text",
-            text: JSON.stringify({
-                message: "Audit log is stored locally on the browser extension. Use the browser extension Options page to view the full audit log.",
-                engineVersion: status.version,
-                note: "In Phase 5, audit logs will sync to a central backend for enterprise compliance.",
-                filterApplied: filterType || "none",
-                limit: limit
             }, null, 2)
         }]
     };
@@ -401,10 +381,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 return handleGetStatus();
             case "get_rules":
                 return handleGetRules();
-            case "scan_response":
-                return handleScanResponse(args || {});
             case "get_audit_log":
                 return handleGetAuditLog(args || {});
+            case "scan_response":
+                return handleScanResponse(args || {});
             default:
                 return {
                     content: [{ type: "text", text: "Unknown tool: " + name }],

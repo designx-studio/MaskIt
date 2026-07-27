@@ -5,6 +5,7 @@ const { execSync } = require("child_process");
 
 const root = path.resolve(__dirname, "..");
 const distDir = path.join(root, "dist");
+const pkg = require(path.join(root, "package.json"));
 
 const includePaths = [
   "manifest.json",
@@ -71,8 +72,9 @@ function copyDir(relDir, destDir) {
 
 function createZip(stagingDir, outZip) {
   if (process.platform === "win32") {
+    // Use .NET's ZipFile.CreateFromDirectory which handles subdirectories correctly
     execSync(
-      `powershell -NoProfile -Command "Compress-Archive -Path '${stagingDir}\\*' -DestinationPath '${outZip}' -Force"`,
+      `powershell -NoProfile -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory('${stagingDir}', '${outZip}', [System.IO.Compression.CompressionLevel]::Optimal, $false)"`,
       { stdio: "inherit" }
     );
   } else {
@@ -91,13 +93,14 @@ function buildPackage(name, manifestModifier) {
   includePaths.forEach((p) => copyFile(p, stagingDir));
   includeDirs.forEach((d) => copyDir(d, stagingDir));
 
-  // Apply manifest modifier if provided
+  // Inject version from package.json (single source of truth)
+  const manifestPath = path.join(stagingDir, "manifest.json");
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  manifest.version = pkg.version;
   if (manifestModifier) {
-    const manifestPath = path.join(stagingDir, "manifest.json");
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
     manifestModifier(manifest);
-    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
   }
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 
   // Create zip
   createZip(stagingDir, outZip);
@@ -141,7 +144,13 @@ buildPackage("firefox", (manifest) => {
 buildPackage("extension", null);
 
 console.log("\nAll packages built in dist/");
-console.log("Chrome:      Upload to https://chrome.google.com/webstore/devconsole");
-console.log("Edge:        Upload to https://partner.microsoft.com/dashboard/microsoftedge");
-console.log("Firefox:     Upload to https://addons.mozilla.org/developers/addon");
-console.log("Opera:       Upload to https://addons.opera.com/developers/addons");
+console.log("Chrome:      dist/maskit-chrome.zip");
+console.log("Edge:        dist/maskit-edge.zip");
+console.log("Firefox:     dist/maskit-firefox.zip");
+console.log("Opera:       dist/maskit-opera.zip");
+console.log("Legacy:      dist/maskit-extension.zip");
+console.log("\nUpload to:");
+console.log("  Chrome: https://chrome.google.com/webstore/devconsole");
+console.log("  Edge:   https://partner.microsoft.com/dashboard/microsoftedge");
+console.log("  Firefox: https://addons.mozilla.org/developers/addon");
+console.log("  Opera:  https://addons.opera.com/developers/addons");

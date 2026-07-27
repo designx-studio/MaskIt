@@ -19,7 +19,7 @@ function _maskitInit() {
 
   function loadSettings() {
     try {
-      chrome.storage.sync.get(MASKIT_DEFAULTS, (items) => {
+      chrome.storage.local.get(MASKIT_DEFAULTS, (items) => {
         currentSettings = items;
         updateTrafficLight();
       });
@@ -32,7 +32,7 @@ function _maskitInit() {
 
   try {
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === "sync") loadSettings();
+      if (area === "local") loadSettings();
     });
   } catch {
     // storage listener unavailable
@@ -96,10 +96,27 @@ function _maskitInit() {
     const content = document.createElement("div");
     content.style.cssText = "background:#171a21;padding:30px;border-radius:16px;max-width:420px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.55);border:1px solid #252933;color:#fff;";
 
-    content.innerHTML = '<h2 style="margin:0 0 12px;font-size:20px;">⛔ ' + (message || "AI tools restricted") + '</h2>' +
-      '<p style="color:#9aa4b2;margin:0 0 20px;font-size:14px;">This restriction was set by your organization.</p>' +
-      '<p style="font-size:12px;color:#666;margin:0 0 16px;">Contact your administrator if you believe this is in error.</p>' +
-      '<button id="maskit-killswitch-close" style="background:#252933;color:#fff;border:1px solid #333;border-radius:10px;padding:10px 20px;cursor:pointer;font-size:14px;">OK</button>';
+    // Use createElement + textContent to prevent HTML injection
+    const title = document.createElement("h2");
+    title.style.cssText = "margin:0 0 12px;font-size:20px;";
+    title.textContent = "⛔ " + (message || "AI tools restricted");
+    content.appendChild(title);
+
+    const para1 = document.createElement("p");
+    para1.style.cssText = "color:#9aa4b2;margin:0 0 20px;font-size:14px;";
+    para1.textContent = "This restriction was set by your organization.";
+    content.appendChild(para1);
+
+    const para2 = document.createElement("p");
+    para2.style.cssText = "font-size:12px;color:#666;margin:0 0 16px;";
+    para2.textContent = "Contact your administrator if you believe this is in error.";
+    content.appendChild(para2);
+
+    const closeBtn = document.createElement("button");
+    closeBtn.id = "maskit-killswitch-close";
+    closeBtn.style.cssText = "background:#252933;color:#fff;border:1px solid #333;border-radius:10px;padding:10px 20px;cursor:pointer;font-size:14px;";
+    closeBtn.textContent = "OK";
+    content.appendChild(closeBtn);
 
     modal.appendChild(content);
     (document.body || document.documentElement).appendChild(modal);
@@ -356,13 +373,41 @@ function _maskitInit() {
       findings.slice(0, 3).map(function (f) { return f.type; }).join(", ") +
       (findings.length > 3 ? " +" + (findings.length - 3) + " more" : "");
 
-    card.innerHTML =
-      '<div style="margin:0 0 4px;font-size:15px;font-weight:600;">Review before redacting</div>' +
-      '<div style="color:#9aa4b2;margin:0 0 16px;font-size:13px;">' + findingsText + '</div>' +
-      '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
-      '<button id="maskit-review-cancel" style="background:#333;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-family:inherit;">Cancel <span style="color:#666;font-size:11px;">Esc</span></button>' +
-      '<button id="maskit-review-confirm" style="background:#00b894;color:#001;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;">Redact <span style="opacity:0.6;font-size:11px;">↵</span></button>' +
-      '</div>';
+    // Use createElement + textContent to prevent HTML injection from custom rule names
+    const headerDiv = document.createElement("div");
+    headerDiv.style.cssText = "margin:0 0 4px;font-size:15px;font-weight:600;";
+    headerDiv.textContent = "Review before redacting";
+    card.appendChild(headerDiv);
+
+    const findingsDiv = document.createElement("div");
+    findingsDiv.style.cssText = "color:#9aa4b2;margin:0 0 16px;font-size:13px;";
+    findingsDiv.textContent = findingsText;
+    card.appendChild(findingsDiv);
+
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "display:flex;gap:8px;justify-content:flex-end;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.id = "maskit-review-cancel";
+    cancelBtn.style.cssText = "background:#333;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-family:inherit;";
+    cancelBtn.textContent = "Cancel ";
+    const cancelHint = document.createElement("span");
+    cancelHint.style.cssText = "color:#666;font-size:11px;";
+    cancelHint.textContent = "Esc";
+    cancelBtn.appendChild(cancelHint);
+    btnRow.appendChild(cancelBtn);
+
+    const confirmBtn = document.createElement("button");
+    confirmBtn.id = "maskit-review-confirm";
+    confirmBtn.style.cssText = "background:#00b894;color:#001;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;";
+    confirmBtn.textContent = "Redact ";
+    const confirmHint = document.createElement("span");
+    confirmHint.style.cssText = "opacity:0.6;font-size:11px;";
+    confirmHint.textContent = "↵";
+    confirmBtn.appendChild(confirmHint);
+    btnRow.appendChild(confirmBtn);
+
+    card.appendChild(btnRow);
 
     overlay.appendChild(card);
     (document.body || document.documentElement).appendChild(overlay);
@@ -373,8 +418,6 @@ function _maskitInit() {
       card.style.transform = "scale(1)";
     });
 
-    var confirmBtn = card.querySelector("#maskit-review-confirm");
-    var cancelBtn = card.querySelector("#maskit-review-cancel");
     confirmBtn.focus();
 
     function close() {

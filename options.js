@@ -173,7 +173,7 @@ function saveSettings() {
   const settings = collectSettingsFromForm();
   currentSettings = settings;
 
-  chrome.storage.sync.set(settings, () => {
+  chrome.storage.local.set(settings, () => {
     showStatus("Settings saved.");
   });
 }
@@ -195,7 +195,7 @@ function loadStats() {
 }
 
 function loadSettings() {
-  chrome.storage.sync.get(MASKIT_DEFAULTS, (items) => {
+  chrome.storage.local.get(MASKIT_DEFAULTS, (items) => {
     currentSettings = items;
     renderProtectionRows(items);
     renderBuiltinRules(items);
@@ -243,7 +243,7 @@ function addCustomRule() {
   });
 
   currentSettings = settings;
-  chrome.storage.sync.set(settings, () => {
+  chrome.storage.local.set(settings, () => {
     document.getElementById("custom-rule-name").value = "";
     document.getElementById("custom-rule-pattern").value = "";
     renderCustomRules(settings.customRules);
@@ -255,7 +255,7 @@ function deleteCustomRule(ruleId) {
   const settings = collectSettingsFromForm();
   settings.customRules = (settings.customRules || []).filter((rule) => rule.id !== ruleId);
   currentSettings = settings;
-  chrome.storage.sync.set(settings, () => {
+  chrome.storage.local.set(settings, () => {
     renderCustomRules(settings.customRules);
     showStatus("Rule deleted.");
   });
@@ -282,7 +282,7 @@ function importSettings(file) {
         .filter((rule) => rule && validateCustomRegexPattern(rule.pattern).ok)
         .slice(0, REGEX_LIMITS.maxCustomRules);
       currentSettings = settings;
-      chrome.storage.sync.set(settings, () => {
+      chrome.storage.local.set(settings, () => {
         loadSettings();
         showStatus("Settings imported.");
       });
@@ -381,7 +381,7 @@ document.addEventListener("DOMContentLoaded", () => {
           .filter((rule) => rule && validateCustomRegexPattern(rule.pattern).ok)
           .slice(0, REGEX_LIMITS.maxCustomRules);
         currentSettings = settings;
-        chrome.storage.sync.set(settings, () => {
+        chrome.storage.local.set(settings, () => {
           loadSettings();
           showStatus("Shared config imported.");
         });
@@ -506,7 +506,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentPolicyContext = "default";
 
   function loadPolicies() {
-    chrome.storage.sync.get({ policies: null }, (items) => {
+    chrome.storage.local.get({ policies: null }, (items) => {
       if (items.policies) {
         currentPolicies = items.policies;
       } else {
@@ -592,7 +592,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     currentPolicies[currentPolicyContext] = policy;
 
-    chrome.storage.sync.set({ policies: currentPolicies }, () => {
+    chrome.storage.local.set({ policies: currentPolicies }, () => {
       showStatus("Policies saved.");
     });
   });
@@ -638,7 +638,7 @@ document.addEventListener("DOMContentLoaded", () => {
               // Also import policies if present
               if (imported.policies) {
                 currentPolicies = imported.policies;
-                chrome.storage.sync.set({ policies: currentPolicies });
+                chrome.storage.local.set({ policies: currentPolicies });
               }
               loadSettings();
               loadPolicies();

@@ -106,7 +106,7 @@ function loadPopup() {
     })() : "";
 
     // Load settings + pause state in parallel
-    chrome.storage.sync.get(MASKIT_DEFAULTS, (items) => {
+    chrome.storage.local.get(MASKIT_DEFAULTS, (items) => {
       currentPopupSettings = items;
 
       chrome.runtime.sendMessage({ type: "GET_PAUSE_STATE" }, (response) => {
@@ -116,7 +116,7 @@ function loadPopup() {
         // ── Protection toggle ──────────────────────────────────────────
         document.getElementById("toggle-wrap").addEventListener("click", () => {
           currentPopupSettings.enabled = !currentPopupSettings.enabled;
-          chrome.storage.sync.set({ enabled: currentPopupSettings.enabled }, renderAll);
+          chrome.storage.local.set({ enabled: currentPopupSettings.enabled }, renderAll);
         });
 
         // ── Pause button ───────────────────────────────────────────────

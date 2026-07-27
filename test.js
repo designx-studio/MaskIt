@@ -177,8 +177,7 @@ test("sanitizes with custom format", () => {
 test("manifest.json is valid", () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
   assert.strictEqual(manifest.manifest_version, 3);
-  assert.ok(manifest.host_permissions.includes("https://chatgpt.com/*"));
-  assert.ok(!manifest.host_permissions.includes("https://*/*"));
+  assert.ok(manifest.host_permissions.includes("<all_urls>"));
   assert.ok(manifest.background?.service_worker);
   assert.ok(manifest.action?.default_popup);
   assert.ok(manifest.commands?.["toggle-protection"]);
@@ -255,6 +254,134 @@ test("shared engine evaluatePolicy works", () => {
   const result = engine.evaluatePolicy("SSN 123-45-6789", allEnabled);
   assert.ok(result.findings.length > 0);
   assert.ok(result.riskScore > 0);
+});
+
+// ── Multi-browser build tests ─────────────────────────────────────────────
+
+test("manifest.json uses <all_urls> for host permissions", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  assert.ok(manifest.host_permissions.includes("<all_urls>"),
+    "host_permissions should include <all_urls> for all-site protection");
+});
+
+test("manifest.json has single unified content script", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  assert.strictEqual(manifest.content_scripts.length, 1,
+    "Should have single unified content script");
+  assert.ok(manifest.content_scripts[0].matches.includes("<all_urls>"),
+    "Content script should match <all_urls>");
+});
+
+test("manifest.json content script includes all required JS files", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  const js = manifest.content_scripts[0].js;
+  assert.ok(js.includes("settings.js"), "Missing settings.js");
+  assert.ok(js.includes("detector.js"), "Missing detector.js");
+  assert.ok(js.includes("sanitizer.js"), "Missing sanitizer.js");
+  assert.ok(js.includes("editors.js"), "Missing editors.js");
+  assert.ok(js.includes("content.js"), "Missing content.js");
+  assert.ok(js.includes("ai-intercept.js"), "Missing ai-intercept.js");
+});
+
+test("manifest.json content script runs at document_start", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  assert.strictEqual(manifest.content_scripts[0].run_at, "document_start",
+    "Content script should run at document_start for early interception");
+});
+
+test("manifest.json content script covers all frames", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  assert.strictEqual(manifest.content_scripts[0].all_frames, true,
+    "Content script should cover all frames for iframe protection");
+});
+
+test("manifest.json has Firefox gecko settings", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  assert.ok(manifest.browser_specific_settings?.gecko?.id,
+    "Missing gecko.id for Firefox compatibility");
+  assert.ok(manifest.browser_specific_settings?.gecko?.strict_min_version,
+    "Missing gecko.strict_min_version for Firefox compatibility");
+});
+
+test("manifest.json has keyboard shortcuts", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  assert.ok(manifest.commands?.["toggle-protection"], "Missing toggle-protection command");
+  assert.ok(manifest.commands?.["pause-protection"], "Missing pause-protection command");
+});
+
+test("manifest.json has context menu for scan selection", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  assert.ok(manifest.context_menus?.some(m => m.id === "maskit-scan-selection"),
+    "Missing maskit-scan-selection context menu");
+});
+
+test("manifest.json has CSP with script-src self", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  assert.ok(manifest.content_security_policy?.extension_pages?.includes("script-src 'self'"),
+    "CSP should include script-src 'self'");
+});
+
+test("build script exists and supports all browsers", () => {
+  const buildPath = path.join(root, "scripts", "build.js");
+  assert.ok(fs.existsSync(buildPath), "scripts/build.js should exist");
+  const buildCode = fs.readFileSync(buildPath, "utf8");
+  assert.ok(buildCode.includes("buildPackage"), "Build script should have buildPackage function");
+  assert.ok(buildCode.includes("chrome"), "Build script should build Chrome");
+  assert.ok(buildCode.includes("firefox"), "Build script should build Firefox");
+  assert.ok(buildCode.includes("edge"), "Build script should build Edge");
+  assert.ok(buildCode.includes("opera"), "Build script should build Opera");
+});
+
+test("package.json has per-browser build scripts", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  assert.ok(pkg.scripts["build:chrome"], "Missing build:chrome script");
+  assert.ok(pkg.scripts["build:firefox"], "Missing build:firefox script");
+  assert.ok(pkg.scripts["build:edge"], "Missing build:edge script");
+  assert.ok(pkg.scripts["build:opera"], "Missing build:opera script");
+});
+
+test("validate-manifests.js script exists", () => {
+  const validatePath = path.join(root, "scripts", "validate-manifests.js");
+  assert.ok(fs.existsSync(validatePath), "scripts/validate-manifests.js should exist");
+});
+
+test("all content script files exist on disk", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  for (const jsFile of manifest.content_scripts[0].js) {
+    assert.ok(fs.existsSync(path.join(root, jsFile)), `Missing file: ${jsFile}`);
+  }
+});
+
+test("all icon files exist on disk", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  for (const size of ["16", "48", "128"]) {
+    const iconPath = manifest.icons[size];
+    assert.ok(fs.existsSync(path.join(root, iconPath)), `Missing icon: ${iconPath}`);
+  }
+});
+
+test("background.js exists as service worker", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  const sw = manifest.background?.service_worker;
+  assert.ok(sw, "Missing background.service_worker");
+  assert.ok(fs.existsSync(path.join(root, sw)), `Service worker file missing: ${sw}`);
+});
+
+test("popup.html and options.html exist", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  assert.ok(fs.existsSync(path.join(root, manifest.action.default_popup)), "popup.html missing");
+  assert.ok(fs.existsSync(path.join(root, manifest.options_page)), "options.html missing");
+});
+
+test("privacy-policy.html exists", () => {
+  assert.ok(fs.existsSync(path.join(root, "privacy-policy.html")), "privacy-policy.html missing");
+});
+
+test("version is synced between package.json and manifest.json", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+  assert.strictEqual(pkg.version, manifest.version,
+    `Version mismatch: package.json=${pkg.version}, manifest.json=${manifest.version}`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

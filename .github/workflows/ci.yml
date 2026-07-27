@@ -18,8 +18,27 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Validate regex safety (ReDoS)
+        run: npm run test:regex
+      - name: Audit dependencies
+        run: npm audit --production
       - run: npm test
       - name: Install MCP server deps
-        run: cd mcp-server && npm ci
+        run: cd mcp-server && npm ci --ignore-scripts
+      - name: Audit MCP server dependencies
+        run: cd mcp-server && npm audit --production
       - name: Run MCP server tests
         run: node mcp-server/test.js
+      - name: Validate manifests
+        run: node scripts/validate-manifests.js
+      - name: Build all browser extensions
+        run: npm run build
+      - name: Verify all zips created
+        run: |
+          test -f dist/maskit-chrome.zip
+          test -f dist/maskit-firefox.zip
+          test -f dist/maskit-edge.zip
+          test -f dist/maskit-opera.zip
+          echo "All browser zips built successfully"

@@ -440,7 +440,8 @@ test("hashSensitive produces deterministic tokens", () => {
     const hash3 = hashSensitive("sk-different-key");
     assert.strictEqual(hash1, hash2, "Same input should produce same hash");
     assert.notStrictEqual(hash1, hash3, "Different input should produce different hash");
-    assert.ok(hash1.length === 16, "Hash should be 16 hex chars");
+    assert.ok(hash1.length === 64, "Hash should be 64 hex chars (SHA-256)");
+    assert.ok(/^[a-f0-9]+$/.test(hash1), "Hash should be hex string");
 });
 
 test("pruneAuditLog removes old events", () => {

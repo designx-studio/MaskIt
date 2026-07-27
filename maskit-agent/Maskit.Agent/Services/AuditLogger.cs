@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace Maskit.Agent.Services;
@@ -40,6 +42,10 @@ public class AuditLogger
         {
             try
             {
+                // Compute chain hash from previous event
+                var previousHash = GetLastChainHash();
+                auditEvent.ChainHash = ComputeChainHash(previousHash, auditEvent.Id, auditEvent.Timestamp);
+
                 // Rotate log if too large
                 if (File.Exists(_logPath) && new FileInfo(_logPath).Length > _maxLogSize)
                 {
@@ -62,6 +68,39 @@ public class AuditLogger
                 Console.Error.WriteLine($"Audit log write error: {ex.Message}");
             }
         }
+    }
+
+    private string? GetLastChainHash()
+    {
+        if (!File.Exists(_logPath)) return null;
+
+        try
+        {
+            // Read last non-empty line
+            string? lastLine = null;
+            foreach (var line in File.ReadLines(_logPath))
+            {
+                if (!string.IsNullOrWhiteSpace(line)) lastLine = line;
+            }
+
+            if (string.IsNullOrEmpty(lastLine)) return null;
+
+            var lastEvent = JsonSerializer.Deserialize<AuditEvent>(lastLine);
+            return lastEvent?.ChainHash;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string ComputeChainHash(string? previousHash, string eventId, long timestamp)
+    {
+        var input = (previousHash ?? "0") + eventId + timestamp;
+        using var sha256 = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(input);
+        var hash = sha256.ComputeHash(bytes);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     public AuditEvent[] GetRecentEvents(int count = 100)
@@ -117,6 +156,7 @@ public class AuditEvent
     public long? UnmaskedAt { get; set; }
     public long? UnmaskedDuration { get; set; }
     public AppContextInfo? AppContext { get; set; }
+    public string? ChainHash { get; set; }
 }
 
 /// <summary>

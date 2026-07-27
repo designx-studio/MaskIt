@@ -1,196 +1,62 @@
-body {
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
   margin: 0;
-  width: 300px;
-  background: #0f1115;
-  color: #fff;
-  font-family: Arial, sans-serif;
+  padding: 0;
+}
+
+body {
+  width: 320px;
+  background: #ffffff;
+  color: #111827;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 .popup {
-  padding: 16px;
+  padding: 20px;
 }
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
 
 header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 h1 {
   margin: 0;
   font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.01em;
 }
 
 .badge {
   font-size: 11px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 999px;
-  background: #00b894;
-  color: #001;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 500;
 }
 
 .badge.off {
-  background: #444;
-  color: #ccc;
+  background: #f3f4f6;
+  color: #6b7280;
 }
 
-.row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid #252933;
-  margin-bottom: 12px;
-}
+/* ── Toggle Section ────────────────────────────────────────────────────── */
 
-.stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.stat {
-  background: #171a21;
-  border: 1px solid #252933;
-  border-radius: 12px;
-  padding: 10px;
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.stat-label {
-  color: #9aa4b2;
-  font-size: 12px;
-  margin-top: 4px;
-}
-
-.site-status {
-  color: #9aa4b2;
-  font-size: 12px;
-  margin: 12px 0 0;
-}
-
-.privacy-note {
-  color: #9aa4b2;
-  font-size: 11px;
-  line-height: 1.45;
-  margin: 12px 0 0;
-}
-
-.actions {
-  margin-top: 14px;
-}
-
-.actions a {
-  color: #00b894;
-  text-decoration: none;
-  font-size: 13px;
-}
-
-/* ── Traffic light row ─────────────────────────────────────────────────── */
-.tl-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 0;
-  border-bottom: 1px solid #252933;
-  margin-bottom: 2px;
-}
-
-.tl-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  transition: box-shadow 0.35s ease;
-}
-
-.tl-dot.green {
-  background: #00b894;
-  box-shadow: 0 0 0 3px rgba(0, 184, 148, 0.2);
-}
-
-.tl-dot.amber {
-  background: #f6b93b;
-  box-shadow: 0 0 0 3px rgba(246, 185, 59, 0.2);
-}
-
-.tl-dot.red {
-  background: #e55039;
-  box-shadow: 0 0 0 3px rgba(229, 80, 57, 0.2);
-}
-
-.tl-dot.loading {
-  background: #444;
-}
-
-.tl-label {
-  flex: 1;
-  font-size: 13px;
-  color: #9aa4b2;
-}
-
-/* ── Pause button ──────────────────────────────────────────────────────── */
-.btn-pause {
-  background: rgba(246, 185, 59, 0.08);
-  border: 1px solid rgba(246, 185, 59, 0.28);
-  border-radius: 7px;
-  color: #f6b93b;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s;
-  flex-shrink: 0;
-  font-family: inherit;
-}
-
-.btn-pause:hover:not(:disabled) {
-  background: rgba(246, 185, 59, 0.18);
-}
-
-.btn-pause:disabled {
-  opacity: 0.38;
-  cursor: default;
-}
-
-/* ── Exclude button ────────────────────────────────────────────────────── */
-.btn-exclude {
-  width: 100%;
-  background: transparent;
-  border: 1px solid #2e3340;
-  border-radius: 8px;
-  color: #e55039;
-  padding: 8px 12px;
-  font-size: 13px;
-  cursor: pointer;
-  margin-top: 6px;
-  margin-bottom: 10px;
-  transition: background 0.15s, border-color 0.15s;
-  font-family: inherit;
-  text-align: center;
-}
-
-.btn-exclude:hover:not(:disabled) {
-  background: rgba(229, 80, 57, 0.08);
-  border-color: rgba(229, 80, 57, 0.38);
-}
-
-.btn-exclude:disabled {
-  color: #9aa4b2;
-  cursor: default;
-  border-color: #252933;
-}
-
-/* ── Big toggle ON/OFF switch ──────────────────────────────────────────── */
 .toggle-section {
   padding: 12px 0;
-  border-bottom: 1px solid #252933;
-  margin-bottom: 8px;
+  border-bottom: 1px solid #f3f4f6;
+  margin-bottom: 12px;
 }
 
 .toggle-wrap {
@@ -202,29 +68,29 @@ h1 {
 }
 
 .toggle-track {
-  width: 52px;
-  height: 28px;
-  border-radius: 14px;
-  background: #00b894;
+  width: 48px;
+  height: 26px;
+  border-radius: 13px;
+  background: #10b981;
   position: relative;
-  transition: background 0.2s ease;
+  transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
 }
 
 .toggle-track.off {
-  background: #444;
+  background: #d1d5db;
 }
 
 .toggle-knob {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #fff;
   position: absolute;
   top: 3px;
-  left: 27px;
-  transition: left 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  left: 25px;
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
 .toggle-track.off .toggle-knob {
@@ -238,66 +104,226 @@ h1 {
 .toggle-label {
   font-size: 18px;
   font-weight: 700;
-  color: #00b894;
+  color: #10b981;
   transition: color 0.2s;
 }
 
 .toggle-label.off {
-  color: #666;
+  color: #9ca3af;
 }
 
 .toggle-sub {
   font-size: 12px;
-  color: #9aa4b2;
+  color: #6b7280;
   margin-top: 2px;
 }
 
-/* ── Action row ────────────────────────────────────────────────────────── */
+/* ── Action Row ────────────────────────────────────────────────────────── */
+
 .action-row {
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
 }
 
-.btn-exclude-sm {
+.tl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6;
+  margin-bottom: 2px;
+}
+
+.tl-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tl-dot.green {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.tl-dot.amber {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
+
+.tl-dot.red {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.tl-dot.loading {
+  background: #d1d5db;
+}
+
+.tl-label {
   flex: 1;
-  background: transparent;
-  border: 1px solid #2e3340;
-  border-radius: 7px;
-  color: #e55039;
-  padding: 5px 10px;
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+
+.btn-pause {
+  flex: 1;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #f59e0b;
+  padding: 6px 12px;
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s ease;
   font-family: inherit;
-  text-align: center;
 }
 
-.btn-exclude-sm:hover:not(:disabled) {
-  background: rgba(229, 80, 57, 0.08);
+.btn-pause:hover:not(:disabled) {
+  background: #fef3c7;
 }
 
-.btn-exclude-sm:disabled {
-  color: #9aa4b2;
+.btn-pause:disabled {
+  opacity: 0.4;
   cursor: default;
 }
 
-/* ── MCP status ────────────────────────────────────────────────────────── */
+.btn-exclude-sm {
+  flex: 1;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #ef4444;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  font-family: inherit;
+}
+
+.btn-exclude-sm:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.btn-exclude-sm:disabled {
+  color: #9ca3af;
+  cursor: default;
+}
+
+/* ── Stats ──────────────────────────────────────────────────────────────── */
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stat {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.02em;
+}
+
+.stat-label {
+  color: #6b7280;
+  font-size: 11px;
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+/* ── Site Status ───────────────────────────────────────────────────────── */
+
+.site-status {
+  color: #6b7280;
+  font-size: 12px;
+  margin: 12px 0 0;
+  font-weight: 500;
+}
+
+/* ── Privacy Note ──────────────────────────────────────────────────────── */
+
+.privacy-note {
+  color: #9ca3af;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 12px 0 0;
+}
+
+/* ── MCP Status ────────────────────────────────────────────────────────── */
+
 .mcp-status {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: #9aa4b2;
-  padding: 8px 0 0;
-  margin-top: 8px;
-  border-top: 1px solid #252933;
+  color: #9ca3af;
+  padding: 10px 0 0;
+  margin-top: 10px;
+  border-top: 1px solid #f3f4f6;
 }
 
 .mcp-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: #00b894;
+  background: #10b981;
   flex-shrink: 0;
+}
+
+/* ── Actions ───────────────────────────────────────────────────────────── */
+
+.actions {
+  margin-top: 12px;
+}
+
+.actions a {
+  color: #10b981;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.actions a:hover {
+  color: #059669;
+}
+
+/* ── Exclude button (full width) ──────────────────────────────────────── */
+
+.btn-exclude {
+  width: 100%;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #ef4444;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.15s ease;
+  font-family: inherit;
+  text-align: center;
+}
+
+.btn-exclude:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.btn-exclude:disabled {
+  color: #9ca3af;
+  cursor: default;
 }

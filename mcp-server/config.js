@@ -6,6 +6,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const crypto = require("crypto");
 
 const ENGINE_DEFAULTS = require("../engine/settings").MASKIT_DEFAULTS;
 
@@ -97,11 +98,61 @@ function getSettingsForApp(appName) {
     return base;
 }
 
+// ── API token management (for HTTP server auth) ─────────────────────────────
+
+function getApiToken() {
+    const config = readConfig();
+    return config.apiToken || null;
+}
+
+function setApiToken(token) {
+    const config = readConfig();
+    config.apiToken = token;
+    writeConfig(config);
+}
+
+function getOrCreateApiToken() {
+    let token = getApiToken();
+    if (!token) {
+        token = crypto.randomBytes(32).toString("hex");
+        setApiToken(token);
+    }
+    return token;
+}
+
+// ── Hash salt management (for sensitive data hashing) ───────────────────────
+
+function getHashSalt() {
+    const config = readConfig();
+    return config.hashSalt || null;
+}
+
+function setHashSalt(salt) {
+    const config = readConfig();
+    config.hashSalt = salt;
+    writeConfig(config);
+}
+
+function getOrCreateHashSalt() {
+    let salt = getHashSalt();
+    if (!salt) {
+        salt = crypto.randomBytes(32).toString("hex");
+        setHashSalt(salt);
+    }
+    return salt;
+}
+
 module.exports = {
     getConfigDir,
     getConfigPath,
     getDefaultConfig,
     readConfig,
     writeConfig,
-    getSettingsForApp
+    getSettingsForApp,
+    getApiToken,
+    setApiToken,
+    getOrCreateApiToken,
+    getHashSalt,
+    setHashSalt,
+    getOrCreateHashSalt
 };
