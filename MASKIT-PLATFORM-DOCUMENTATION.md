@@ -24,4 +24,4 @@ Scanning and redaction happen locally. Audit events retain metadata and hashed t
 
 ## Scope boundary
 
-Maskit is not an email privacy product. Gmail and email-composition integrations are intentionally unsupported. Documentation and implementation must not add email-specific host permissions or editor behavior.
+Maskit is an AI privacy product, not a general-purpose site or messaging privacy tool. Non-AI host permissions and editor-specific integrations are intentionally unsupported. Documentation and implementation must not add unrelated host permissions or editor behavior.
