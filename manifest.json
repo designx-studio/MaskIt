@@ -13,5 +13,5 @@
   "options_page": "options.html",
   "commands": {"toggle-protection": {"suggested_key": {"default": "Alt+Shift+M"}, "description": "Toggle Maskit protection"}, "pause-protection": {"suggested_key": {"default": "Alt+Shift+P"}, "description": "Pause Maskit temporarily"}},
   "context_menus": [{"id": "maskit-scan-selection", "title": "Maskit: Scan & Redact Selection", "contexts": ["selection"]}],
-  "content_scripts": [{"matches": ["https://chatgpt.com/*", "https://chat.openai.com/*", "https://claude.ai/*", "https://gemini.google.com/*", "https://copilot.microsoft.com/*", "https://*.cursor.com/*"], "js": ["settings.js", "detector.js", "sanitizer.js", "editors.js", "content.js"], "run_at": "document_start", "all_frames": false}]
+  "content_scripts": [{"matches": ["https://chatgpt.com/*", "https://chat.openai.com/*", "https://claude.ai/*", "https://gemini.google.com/*", "https://copilot.microsoft.com/*", "https://*.cursor.com/*"], "js": ["settings.js", "browser-rules.js", "detector.js", "sanitizer.js", "editors.js", "content.js"], "run_at": "document_start", "all_frames": false}]
 }
