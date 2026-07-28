@@ -24,6 +24,7 @@ jobs:
       - run: npm run test:browser-surface
       - run: npm run test:stabilization
       - run: npm run test:canonical-events
+      - run: npm run test:adapter-events
       - run: npm test
       - run: cd mcp-server && npm ci --ignore-scripts
       - run: node mcp-server/test.js
@@ -34,6 +35,7 @@ jobs:
       - run: npm run test:clean-install
       - run: npm run test:windows-package
       - run: npm run test:e2e:chromium
+      - run: npm run check:browser-artifact
       - name: Verify browser and server artifacts
         shell: bash
         run: |
