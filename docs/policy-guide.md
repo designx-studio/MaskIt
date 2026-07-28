@@ -2,7 +2,9 @@
 
 Maskit separates detection from decision. A finding is classified, scored, then evaluated against a policy before any action is taken.
 
-Supported results are `allow`, `warn`, `redact`, `block`, and `require_approval`. The current browser and MCP surfaces expose allow, redact, and block directly; warn and approval are represented in the shared context model for staged rollout.
+**User-visible actions today:** `allow`, `redact`, and `block`.
+
+The canonical schema also reserves `warn` and `require_approval` for staged rollout. Do not market warn/approval as fully shipped product UX until exposed in settings and adapters.
 
 ## Safer rollout
 

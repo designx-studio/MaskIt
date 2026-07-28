@@ -1,0 +1,69 @@
+{
+  "description": "Synthetic canonical events only. No raw secrets.",
+  "schemaVersion": "1.0",
+  "events": [
+    {
+      "schemaVersion": "1.0",
+      "eventId": "evt_1785262392636_gdja2l",
+      "timestamp": "2026-07-28T18:13:12.636Z",
+      "source": "cli",
+      "application": "pilot-evidence",
+      "user": null,
+      "device": null,
+      "dataType": "EMAIL",
+      "confidence": 0.85,
+      "risk": "medium",
+      "policy": {
+        "name": "default",
+        "version": "1",
+        "result": "redact"
+      },
+      "action": "redacted",
+      "explanation": "EMAIL matched in pilot-evidence; policy result was redact.",
+      "ruleId": "EMAIL",
+      "matchedValueHash": "344c07ddb0f0ed7ba7cbd069d630b64f20700a3442b609b6dea4d5037c2fced5"
+    },
+    {
+      "schemaVersion": "1.0",
+      "eventId": "evt_1785262392638_i80shf",
+      "timestamp": "2026-07-28T18:13:12.638Z",
+      "source": "cli",
+      "application": "pilot-evidence",
+      "user": null,
+      "device": null,
+      "dataType": "API_KEY",
+      "confidence": 0.95,
+      "risk": "critical",
+      "policy": {
+        "name": "default",
+        "version": "1",
+        "result": "redact"
+      },
+      "action": "redacted",
+      "explanation": "API_KEY_AWS_ACCESS matched in pilot-evidence; policy result was redact.",
+      "ruleId": "API_KEY_AWS_ACCESS",
+      "matchedValueHash": "1a5d44a2dca19669d72edf4c4f1c27c4c1ca4b4408fbb17f6ce4ad452d78ddb3"
+    },
+    {
+      "schemaVersion": "1.0",
+      "eventId": "evt_1785262392638_hb1dmh",
+      "timestamp": "2026-07-28T18:13:12.638Z",
+      "source": "browser",
+      "application": "chatgpt.com",
+      "user": null,
+      "device": null,
+      "dataType": "CARD",
+      "confidence": 0.9,
+      "risk": "critical",
+      "policy": {
+        "name": "default",
+        "version": "1",
+        "result": "block"
+      },
+      "action": "blocked",
+      "explanation": "CARD matched in chatgpt.com; policy result was block.",
+      "ruleId": "CARD",
+      "matchedValueHash": "6a7e0e79b018d08c9d1bb20be79999a7778399f7ee17258b3a0d36d4b4a7bec5"
+    }
+  ]
+}

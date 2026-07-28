@@ -1,82 +1,45 @@
-# Maskit onboarding guide
+# MaskIt onboarding (download-first)
 
-Get from zero to a local protection layer in under ten minutes.
+Get from zero to local protection without compiling the repository.
+
+**Design partners:** start with the [pilot package](pilot/README.md).
 
 ## 1. Choose your surface
 
-- **Browser extension**: protect typing, paste, and copy in ChatGPT, chat.openai.com, Claude, Gemini, Copilot, and Cursor.
-- **MCP server**: expose local scanning tools to Claude Desktop, Cursor, or another MCP client.
-- **CLI**: scan text or files in scripts and CI.
-- **Windows agent beta**: protect clipboard activity system-wide on Windows.
+- **Browser extension** (recommended): ChatGPT, Claude, Gemini, Copilot, Cursor hosts  
+- **MCP server** (optional): Claude Desktop, Cursor, and other MCP clients  
+- **CLI** (optional): scripts and CI  
+- **Windows agent** (optional beta): system **clipboard** protection  
 
-## 2. Install prerequisites
+## 2. Download
 
-Node.js 18+ is required for the repository, MCP server, and CLI. The Windows agent additionally requires .NET 8 SDK and Windows. Browser packaging requires `zip` and `tar` on the build machine.
+Use the [download page](../website/download/index.html) or [latest GitHub Release](https://github.com/designx-studio/MaskIt/releases/latest).
 
-## 3. Install and test
+You do **not** need `git clone` for normal use.
 
-```bash
-git clone https://github.com/designx-studio/MaskIt.git
-cd MaskIt
-npm ci
-npm test
-npm run test:regex
-```
+## 3. Install and verify
 
-## 4. Load the browser extension
+Follow the [pilot installation guide](pilot/02-installation-guide.md):
 
-Build the package:
+1. Install the browser ZIP (Load unpacked).  
+2. Open a supported AI site and paste a synthetic email (`pilot-test@example.com`).  
+3. Confirm masking and check the local audit log (metadata + hash only).  
 
-```bash
-npm run build:chrome
-```
+Optional: Windows `--self-test`, CLI `scan --json`, MCP `scan_text`.
 
-Extract `dist/maskit-chrome.zip`, open `chrome://extensions`, enable Developer mode, and choose **Load unpacked**. Select the extracted folder. Open the extension settings page to choose detection toggles, redaction format, site rules, policies, retention, and pause behavior.
+## 4. Configure
 
-## 5. Start the MCP server
+- Use **allow / redact / block** policies (see [admin guide](pilot/03-admin-guide.md)).  
+- Start with review-before-redact if users are new to the product.  
+- Keep killswitch off until you intentionally need it.  
 
-```bash
-cd mcp-server
-npm ci
-node server.js
-```
+## 5. Read next
 
-The server runs locally over stdio. Configure your MCP client to launch `node /absolute/path/to/MaskIt/mcp-server/server.js`. Available tools are `scan_text`, `redact_text`, `evaluate_policy`, `scan_response`, `get_status`, `get_rules`, and `get_audit_log`.
+- [Pilot overview](pilot/01-pilot-overview.md)  
+- [User guide](pilot/04-user-guide.md)  
+- [Security whitepaper](pilot/05-security-whitepaper.md)  
+- [Claims ↔ evidence](claims-evidence-matrix.md)  
 
-## 6. Use the CLI
+## Contributors only
 
-```bash
-node mcp-server/cli.js scan "email teammate@example.com"
-node mcp-server/cli.js scan-file ./notes.txt
-node mcp-server/cli.js redact "send customer@example.com"
-node mcp-server/cli.js risk "customer@example.com"
-```
-
-Add `--json` for machine-readable output. Use `--exit-on-risk` with `scan-file` in CI.
-
-## 7. Run the Windows agent beta
-
-```powershell
-dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release
-dotnet run --project maskit-agent/Maskit.Agent/Maskit.Agent.csproj -- --parity
-```
-
-Start the tray application with clipboard monitoring enabled. It watches clipboard update events, applies the shared rules and policies, and writes local audit records. It does not inspect keystrokes or screen content.
-
-## 8. Configure the security model
-
-Use `allow`, `redact`, or `block` actions per data type and override them by app or context. Keep the killswitch disabled until you intentionally need a schedule or duration restriction. Set audit retention to match your operational policy. Never commit local config files, tokens, or salts.
-
-## 9. Verify the first successful flow
-
-Paste an email, a valid test card such as `4111 1111 1111 1111`, or a test API-key-shaped value into a supported AI host. Confirm that the browser replaces the match, the local counter increments, and the audit entry contains metadata rather than raw sensitive content.
-
-## Next reads
-
-- [Installation](installation.md)
-- [Browser extension](browser-extension.md)
-- [MCP server](mcp-server.md)
-- [CLI](cli.md)
-- [Windows agent](windows-agent.md)
-- [Security model](security-model.md)
-- [Privacy](privacy.md)
+Source build, tests, and packaging: [development/](development/).

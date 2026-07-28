@@ -12,8 +12,14 @@ Use Node.js 18 or newer, run `npm ci` inside `mcp-server`, and configure the cli
 ## CLI reports a module error
 Run `npm ci` from the repository root and use `node mcp-server/cli.js ...` from the repository root.
 
-## Windows agent does not build
-Use Windows with the .NET 8 SDK, restore the project, and build `maskit-agent/Maskit.Agent/Maskit.Agent.csproj` in Release mode.
+## Windows agent does not start (customers)
+Download `maskit-windows-agent.zip` from GitHub Releases, extract it, and run `publish\Maskit.Agent.exe`. Verify with `--self-test`. The agent only sees **clipboard** text.
+
+## Windows agent does not build (contributors)
+Use Windows with the .NET 8 SDK. See [development/README.md](development/README.md) or `npm run build:windows`.
 
 ## CI packaging fails
-Check that `zip` and `tar` are available on the runner, all icon files exist, and the build is running from the repository root. The build script intentionally omits obsolete `ai-intercept.js`.
+Check that packaging tools are available on the runner, all icon files exist, and the build is running from the repository root.
+
+## Pilot documentation
+Customer install and scope: [pilot/](pilot/).

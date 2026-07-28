@@ -4,7 +4,7 @@ System-wide AI clipboard protection for Windows. Uses the same `maskit-core` rul
 
 ## Behaviour
 
-- **Detect → Warn/Block/Mask → Audit** (no unmask)
+- **Detect → Redact/Block → Audit** (allow/redact/block policies; no unmask)
 - Rules load from packaged `maskit-core/rules` next to the executable (no repository path required)
 - Audit events store **irreversible value hashes only** — never raw clipboard secrets
 - Policy actions match shared defaults (`allow` / `redact` / `block`)

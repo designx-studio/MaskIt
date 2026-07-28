@@ -12,7 +12,7 @@ Every decision carries:
 - policy name, version, and result
 - action taken
 - human-readable explanation
-- optional rule identifier and salted value hash
+- optional rule identifier and irreversible SHA-256 value hash (`matchedValueHash`; unsalted in v2.4.0)
 
 The canonical JSON Schema lives at `maskit-core/audit-schema/context-event.schema.json`. The runtime helper is `engine/context.js`.
 

@@ -2,9 +2,10 @@
   "name": "maskit-extension",
   "version": "2.4.0",
   "private": true,
-  "description": "Protect sensitive information before it reaches AI tools.",
+  "description": "Local protection for sensitive data on supported AI surfaces (browser, CLI, MCP, Windows clipboard).",
   "scripts": {
     "test": "node test.js && node defaults-sync-test.js && node engine/test.js && node mcp-server/test.js && node parity-test.js",
+    "test:docs": "node scripts/verify-doc-consistency.js",
     "test:regex": "node scripts/validate-regex-safety.js",
     "test:browser-surface": "node scripts/validate-browser-surface.js",
     "test:stabilization": "node scripts/validate-stabilization.js",
