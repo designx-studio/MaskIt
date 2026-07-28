@@ -23,24 +23,16 @@ jobs:
       - run: npm run test:regex
       - run: npm run test:browser-surface
       - run: npm run test:stabilization
+      - run: npm run test:canonical-events
       - run: npm test
       - run: cd mcp-server && npm ci --ignore-scripts
       - run: node mcp-server/test.js
       - run: node mcp-server/integration-test.js
       - run: node scripts/validate-manifests.js
       - run: npm run build
-      - name: Package CLI artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist/release/cli
-          cp mcp-server/cli.js dist/release/cli/
-          cp -R engine dist/release/cli/engine
-          cp -R maskit-core dist/release/cli/maskit-core
-          cp mcp-server/config.js package.json dist/release/cli/
-          tar -czf dist/maskit-cli.tar.gz -C dist/release/cli .
       - run: npm run test:release-artifacts
       - run: npm run test:clean-install
+      - run: npm run test:windows-package
       - run: npm run test:e2e:chromium
       - name: Verify browser and server artifacts
         shell: bash
