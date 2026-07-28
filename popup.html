@@ -1,75 +1,43 @@
 <!DOCTYPE html>
 <html>
-
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Maskit</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
-
 <body>
   <div class="popup">
     <header>
       <h1>Maskit</h1>
-      <span id="status-badge" class="badge">Active</span>
+      <span id="status-badge" class="badge">Loading</span>
     </header>
-
-    <!-- Big toggle ON/OFF switch -->
+    <div class="tl-row" aria-live="polite">
+      <span id="tl-dot" class="tl-dot loading" aria-hidden="true"></span>
+      <span id="tl-label" class="tl-label">Checking protection status</span>
+    </div>
     <div class="toggle-section">
-      <div class="toggle-wrap" id="toggle-wrap">
-        <div class="toggle-track" id="toggle-track">
-          <div class="toggle-knob" id="toggle-knob"></div>
-        </div>
-        <div class="toggle-info">
-          <div class="toggle-label" id="toggle-label">ON</div>
-          <div class="toggle-sub" id="toggle-sub">Protecting this page</div>
-        </div>
+      <div class="toggle-wrap" id="toggle-wrap" role="button" tabindex="0" aria-label="Toggle Maskit protection">
+        <div class="toggle-track" id="toggle-track"><div class="toggle-knob" id="toggle-knob"></div></div>
+        <div class="toggle-info"><div class="toggle-label" id="toggle-label">ON</div><div class="toggle-sub" id="toggle-sub">Checking this page</div></div>
       </div>
     </div>
-
-    <!-- Pause + Exclude row -->
     <div class="action-row">
       <button id="pause-btn" class="btn-pause" disabled>⏸ Pause</button>
-      <button id="exclude-btn" class="btn-exclude-sm">✕ Exclude page</button>
+      <button id="exclude-btn" class="btn-exclude-sm" disabled>✕ Exclude page</button>
     </div>
-
     <div class="stats">
-      <div class="stat">
-        <div id="stat-total" class="stat-value">0</div>
-        <div class="stat-label">Total redactions</div>
-      </div>
-      <div class="stat">
-        <div id="stat-paste" class="stat-value">0</div>
-        <div class="stat-label">Paste</div>
-      </div>
-      <div class="stat">
-        <div id="stat-copy" class="stat-value">0</div>
-        <div class="stat-label">Copy</div>
-      </div>
-      <div class="stat">
-        <div id="stat-typing" class="stat-value">0</div>
-        <div class="stat-label">Typing</div>
-      </div>
+      <div class="stat"><div id="stat-total" class="stat-value">0</div><div class="stat-label">Total redactions</div></div>
+      <div class="stat"><div id="stat-paste" class="stat-value">0</div><div class="stat-label">Paste</div></div>
+      <div class="stat"><div id="stat-copy" class="stat-value">0</div><div class="stat-label">Copy</div></div>
+      <div class="stat"><div id="stat-typing" class="stat-value">0</div><div class="stat-label">Typing</div></div>
     </div>
-
-    <p id="site-status" class="site-status"></p>
-
-    <p class="privacy-note">
-      Local processing only. Maskit helps reduce accidental exposure — it does not
-      guarantee protection. No clipboard logs or page content are stored or uploaded.
-    </p>
-
-    <div class="mcp-status">
-      <span class="mcp-dot"></span> MCP Server: use shared config for desktop integration
-    </div>
-
-    <div class="actions">
-      <a href="options.html" target="_blank">Settings</a>
-    </div>
+    <p id="site-status" class="site-status">Loading page status...</p>
+    <p class="privacy-note">Local processing only. Maskit helps reduce accidental exposure. No clipboard logs or page content are stored or uploaded.</p>
+    <div class="mcp-status"><span class="mcp-dot"></span> MCP Server: shared local policy</div>
+    <div class="actions"><a href="options.html" target="_blank">Settings</a></div>
   </div>
-
   <script src="settings.js"></script>
   <script src="popup.js"></script>
 </body>
-
 </html>

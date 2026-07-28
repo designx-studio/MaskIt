@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node test.js && node defaults-sync-test.js && node engine/test.js && node mcp-server/test.js && node parity-test.js",
     "test:regex": "node scripts/validate-regex-safety.js",
+    "test:browser-surface": "node scripts/validate-browser-surface.js",
     "audit:website": "node scripts/audit-website.js",
     "release:monitor": "node scripts/release-monitor.js",
     "build": "node scripts/build.js",
