@@ -25,7 +25,7 @@ assert.strictEqual(manifest.manifest_version, 3);
 assert.ok(!JSON.stringify(manifest).toLowerCase().includes("gmail"));
 assert.ok(manifest.content_scripts[0].matches.every((match) => match !== "<all_urls>"));
 assert.ok(manifest.content_scripts[0].matches.includes("https://claude.ai/*"));
-assert.ok(manifest.content_scripts[0].js.includes("ai-intercept.js"));
+assert.ok(manifest.content_scripts[0].js.includes("content.js"));
 assert.ok(manifest.background.service_worker === "background.js");
 
 const engine = require("./engine/index");
