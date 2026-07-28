@@ -1,0 +1,10 @@
+const assert = require("assert");
+const engine = require("../engine");
+const { simulatePolicy } = require("../engine/simulation");
+const config = require("./config");
+const result = simulatePolicy(engine, "Contact jane@example.com", config.readConfig());
+assert.strictEqual(result.mode, "simulation");
+assert.strictEqual(result.mutated, false);
+assert.ok(Array.isArray(result.explanations));
+assert.ok(result.explanations[0].explanation);
+console.log("MCP simulation stabilization test passed");
