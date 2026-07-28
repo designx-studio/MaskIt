@@ -27,6 +27,8 @@ jobs:
       - run: cd mcp-server && npm ci --ignore-scripts
       - run: dotnet restore maskit-agent/Maskit.Agent/Maskit.Agent.csproj
       - run: dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --no-restore
+      - name: Publish self-contained Windows agent
+        run: dotnet publish maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output dist/windows-agent/publish
       - name: Package CLI and MCP server
         shell: bash
         run: |
@@ -35,18 +37,17 @@ jobs:
           cp mcp-server/cli.js dist/release/cli/
           cp -R engine dist/release/cli/engine
           cp mcp-server/config.js package.json dist/release/cli/
+          tar -czf dist/maskit-cli.tar.gz -C dist/release/cli .
           cp -R mcp-server dist/release/mcp-server/package
           rm -rf dist/release/mcp-server/package/node_modules dist/release/mcp-server/package/.git
-          tar -czf dist/maskit-cli.tar.gz -C dist/release/cli .
           tar -czf dist/maskit-mcp.tar.gz -C dist/release/mcp-server .
       - name: Package Windows agent
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist/windows-agent
-          cp -R maskit-agent/README.md maskit-agent/Maskit.Agent dist/windows-agent/
+          cp maskit-agent/README.md dist/windows-agent/
           cd dist/windows-agent
-          zip -qr ../maskit-windows-agent.zip .
+          zip -qr ../maskit-windows-agent.zip publish README.md
       - name: Verify release assets
         shell: bash
         run: |
