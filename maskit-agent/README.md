@@ -1,34 +1,78 @@
 # Maskit Windows Agent
 
-The Windows tray agent provides system-wide AI clipboard protection. It uses the shared `maskit-core` JSON rule and policy artifacts copied into the build output by `Maskit.Agent.csproj`.
+System-wide AI clipboard protection for Windows. Uses the same `maskit-core` rules, policy defaults, and **canonical audit events (schema 1.0)** as the browser extension, CLI, and MCP server.
 
-## Core alignment
+## Behaviour
 
-The agent consumes the same source of truth as the browser and MCP adapters for:
+- **Detect → Warn/Block/Mask → Audit** (no unmask)
+- Rules load from packaged `maskit-core/rules` next to the executable (no repository path required)
+- Audit events store **irreversible value hashes only** — never raw clipboard secrets
+- Policy actions match shared defaults (`allow` / `redact` / `block`)
 
-- Detection rules and validators
-- Policy actions (`allow`, `redact`, `block`)
-- Severity weights and risk levels
-- Tagged redaction format
-- Structured audit event fields
+## Package layout (`maskit-windows-agent.zip`)
 
-`MaskitCoreService` is the adapter boundary for deterministic scan, policy, risk, and redaction results. Clipboard monitoring remains Windows-specific I/O; it does not own detection rules.
-
-## Build and run
-
-```powershell
-dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj
-dotnet run --project maskit-agent/Maskit.Agent/Maskit.Agent.csproj
+```
+README.md
+VERSION.json
+parity-fixtures.json
+publish/
+  Maskit.Agent.exe          # self-contained win-x64
+  maskit-core/
+    rules/*.json
+    policy/*.json
+    audit-schema/*.json
+  VERSION.json
+  parity-fixtures.json
 ```
 
-Run the shared fixture parity smoke test:
+## Modes
 
 ```powershell
-dotnet run --project maskit-agent/Maskit.Agent/Maskit.Agent.csproj -- --parity
+# Tray agent (default)
+.\publish\Maskit.Agent.exe
+
+# Headless scan (clean install / CI)
+.\publish\Maskit.Agent.exe --scan "email test@example.com" --json
+
+# Packaged rules + canonical event self-test
+.\publish\Maskit.Agent.exe --self-test
+
+# Shared fixture parity
+.\publish\Maskit.Agent.exe --parity
 ```
 
-The parity test reads the repository-level `parity-fixtures.json` and the copied `maskit-core` rules. It covers API keys, PII, cards, and custom rules and exits non-zero on drift.
+## Build (developers)
 
-## Audit and limitations
+Requires **.NET 8 SDK**.
 
-Audit events are local JSONL records with hashed sensitive values, timestamps, policy actions, risk scores, and chain hashes. Clipboard interception depends on the Windows desktop session and cannot inspect data that never reaches the clipboard. The agent does not send clipboard contents over the network.
+```powershell
+# From repository root
+npm run build:windows
+# → dist/maskit-windows-agent.zip
+
+# Or full release set
+npm run build
+```
+
+Direct publish:
+
+```powershell
+dotnet publish maskit-agent/Maskit.Agent/Maskit.Agent.csproj `
+  -c Release -r win-x64 --self-contained true `
+  -p:PublishSingleFile=true `
+  -o dist/maskit-windows-agent/publish
+```
+
+## Verify package
+
+```powershell
+npm run test:windows-package
+# Require artifact:
+$env:MASKIT_REQUIRE_WINDOWS_ARTIFACT=1; npm run test:windows-package
+```
+
+## Limitations
+
+- Clipboard interception depends on an interactive Windows desktop session
+- Data that never reaches the clipboard is not visible to the agent
+- No network upload of clipboard contents

@@ -7,6 +7,10 @@ using System.Text.RegularExpressions;
 
 namespace Maskit.Agent.Services;
 
+/// <summary>
+/// Loads detection rules exclusively from maskit-core/rules JSON files
+/// (same source as browser and Node/MCP/CLI).
+/// </summary>
 public class RuleEngine
 {
     private readonly List<CompiledRule> _rules = new();
@@ -15,9 +19,22 @@ public class RuleEngine
 
     public void LoadRules(string rulesPath)
     {
-        if (!Directory.Exists(rulesPath)) throw new DirectoryNotFoundException($"Rules directory not found: {rulesPath}");
+        if (!Directory.Exists(rulesPath))
+            throw new DirectoryNotFoundException($"Rules directory not found: {rulesPath}");
         _rules.Clear();
-        foreach (var file in Directory.GetFiles(rulesPath, "*.json")) LoadRuleFile(file);
+        // Load in stable order matching Node rule-loader
+        foreach (var name in new[] { "pii.json", "financial.json", "secrets.json" })
+        {
+            var file = Path.Combine(rulesPath, name);
+            if (File.Exists(file)) LoadRuleFile(file);
+        }
+        // Any additional rule packs
+        foreach (var file in Directory.GetFiles(rulesPath, "*.json"))
+        {
+            var baseName = Path.GetFileName(file);
+            if (baseName is "pii.json" or "financial.json" or "secrets.json") continue;
+            LoadRuleFile(file);
+        }
     }
 
     public void LoadRuleFile(string filePath)
@@ -27,7 +44,7 @@ public class RuleEngine
         foreach (var ruleElement in rulesArray.EnumerateArray())
         {
             var id = ruleElement.GetProperty("id").GetString() ?? "";
-            var name = ruleElement.GetProperty("name").GetString() ?? "";
+            var name = ruleElement.GetProperty("name").GetString() ?? id;
             var pattern = ruleElement.GetProperty("pattern").GetString() ?? "";
             var flags = ruleElement.TryGetProperty("flags", out var f) ? f.GetString() ?? "g" : "g";
             var type = ruleElement.TryGetProperty("type", out var t) ? t.GetString() ?? "unknown" : "unknown";
@@ -44,8 +61,17 @@ public class RuleEngine
     {
         try
         {
-            var options = RegexOptions.Compiled | (flags.Contains("i", StringComparison.OrdinalIgnoreCase) ? RegexOptions.IgnoreCase : RegexOptions.None);
-            _rules.Add(new CompiledRule { Id = id, Name = name, Regex = new Regex(pattern, options), Type = type, Severity = severity, Validator = validator });
+            var options = RegexOptions.Compiled
+                | (flags.Contains("i", StringComparison.OrdinalIgnoreCase) ? RegexOptions.IgnoreCase : RegexOptions.None);
+            _rules.Add(new CompiledRule
+            {
+                Id = id,
+                Name = name,
+                Regex = new Regex(pattern, options, TimeSpan.FromMilliseconds(250)),
+                Type = type,
+                Severity = severity,
+                Validator = validator
+            });
         }
         catch (Exception ex) { Console.Error.WriteLine($"Failed to compile rule {id}: {ex.Message}"); }
     }
@@ -56,14 +82,37 @@ public class RuleEngine
         var findings = new List<Finding>();
         var seen = new HashSet<string>();
         foreach (var rule in _rules)
-        foreach (Match match in rule.Regex.Matches(text))
         {
-            if (!ValidateFinding(rule, match.Value)) continue;
-            var key = $"{rule.Id}:{match.Value}";
-            if (!seen.Add(key)) continue;
-            findings.Add(new Finding { Type = rule.Id, Name = rule.Name, Value = match.Value, Severity = rule.Severity, StartIndex = match.Index, EndIndex = match.Index + match.Length });
+            MatchCollection matches;
+            try { matches = rule.Regex.Matches(text); }
+            catch (RegexMatchTimeoutException) { continue; }
+
+            foreach (Match match in matches)
+            {
+                if (!ValidateFinding(rule, match.Value)) continue;
+                // Normalize finding type the same way as Node/browser (API_KEY_* → API_KEY)
+                var findingType = NormalizeFindingType(rule.Id);
+                var key = $"{findingType}:{match.Value}";
+                if (!seen.Add(key)) continue;
+                findings.Add(new Finding
+                {
+                    Type = findingType,
+                    Name = rule.Id, // rule ID for RuleId parity with JS ruleName
+                    Value = match.Value,
+                    Severity = rule.Severity,
+                    StartIndex = match.Index,
+                    EndIndex = match.Index + match.Length
+                });
+            }
         }
         return findings;
+    }
+
+    public static string NormalizeFindingType(string ruleId)
+    {
+        if (string.IsNullOrEmpty(ruleId)) return "unknown";
+        if (ruleId.StartsWith("API_KEY", StringComparison.Ordinal)) return "API_KEY";
+        return ruleId;
     }
 
     private static bool ValidateFinding(CompiledRule rule, string value) => rule.Validator switch
@@ -82,7 +131,12 @@ public class RuleEngine
         var digits = Regex.Replace(value, @"\D", "");
         if (digits.Length < 13 || digits.Length > 19) return false;
         var sum = 0; var alternate = false;
-        for (var i = digits.Length - 1; i >= 0; i--) { var digit = digits[i] - '0'; if (alternate) { digit *= 2; if (digit > 9) digit -= 9; } sum += digit; alternate = !alternate; }
+        for (var i = digits.Length - 1; i >= 0; i--)
+        {
+            var digit = digits[i] - '0';
+            if (alternate) { digit *= 2; if (digit > 9) digit -= 9; }
+            sum += digit; alternate = !alternate;
+        }
         return sum % 10 == 0;
     }
 
@@ -91,15 +145,37 @@ public class RuleEngine
         var parts = value.Split('.');
         if (parts.Length != 4 || !parts.All(part => int.TryParse(part, out _))) return false;
         var numbers = parts.Select(int.Parse).ToArray();
-        return numbers.All(number => number >= 0 && number <= 255) && numbers.Any(number => number >= 12) && numbers[0] != 127 && numbers.Any(number => number != 0);
+        return numbers.All(number => number >= 0 && number <= 255)
+            && numbers.Any(number => number >= 12)
+            && numbers[0] != 127
+            && numbers.Any(number => number != 0);
     }
 
     private static bool ValidateMpesa(string value)
     {
-        var upper = value.ToUpperInvariant(); var letters = upper.Count(char.IsLetter); var digits = upper.Count(char.IsDigit);
+        var upper = value.ToUpperInvariant();
+        var letters = upper.Count(char.IsLetter);
+        var digits = upper.Count(char.IsDigit);
         return letters >= 2 && digits >= 2 && letters <= 8 && digits <= 8 && upper.Distinct().Count() > 1;
     }
 }
 
-public class CompiledRule { public string Id { get; set; } = ""; public string Name { get; set; } = ""; public Regex Regex { get; set; } = null!; public string Type { get; set; } = ""; public string Severity { get; set; } = ""; public string Validator { get; set; } = ""; }
-public class Finding { public string Type { get; set; } = ""; public string Name { get; set; } = ""; public string Value { get; set; } = ""; public string Severity { get; set; } = ""; public int StartIndex { get; set; } public int EndIndex { get; set; } }
+public class CompiledRule
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public Regex Regex { get; set; } = null!;
+    public string Type { get; set; } = "";
+    public string Severity { get; set; } = "";
+    public string Validator { get; set; } = "";
+}
+
+public class Finding
+{
+    public string Type { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Value { get; set; } = "";
+    public string Severity { get; set; } = "";
+    public int StartIndex { get; set; }
+    public int EndIndex { get; set; }
+}

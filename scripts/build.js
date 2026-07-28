@@ -201,5 +201,31 @@ const artifacts = [
   "maskit-cli.tar.gz",
   "maskit-mcp.tar.gz"
 ];
+
+// Windows agent (optional on hosts without .NET 8 SDK; required in CI release jobs)
+let windowsBuilt = false;
+try {
+  execFileSync(process.execPath, [path.join(__dirname, "build-windows-agent.js")], {
+    cwd: root,
+    stdio: "inherit",
+    env: process.env
+  });
+  if (fs.existsSync(path.join(distDir, "maskit-windows-agent.zip"))) {
+    artifacts.push("maskit-windows-agent.zip");
+    windowsBuilt = true;
+  }
+} catch (error) {
+  const code = error && error.status;
+  if (code === 2) {
+    console.warn("Windows agent package skipped: .NET SDK not available on this host.");
+  } else {
+    console.warn(`Windows agent package build failed (continuing browser/CLI/MCP release set): ${error.message || error}`);
+  }
+}
+
 writeChecksums(artifacts);
-console.log("Built browser, CLI, and MCP artifacts with SHA-256 checksums.");
+console.log(
+  windowsBuilt
+    ? "Built browser, CLI, MCP, and Windows agent artifacts with SHA-256 checksums."
+    : "Built browser, CLI, and MCP artifacts with SHA-256 checksums (Windows agent not included)."
+);

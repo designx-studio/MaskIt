@@ -15,6 +15,12 @@
     <StartupObject>Maskit.Agent.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="..\..\maskit-core\**\*.json" Link="maskit-core\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\maskit-core\**\*.json" Link="maskit-core\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\parity-fixtures.json" Link="parity-fixtures.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="Exists('..\..\parity-fixtures.json')" />
   </ItemGroup>
+  <PropertyGroup>
+    <!-- Self-contained win-x64 release packaging defaults -->
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
 </Project>

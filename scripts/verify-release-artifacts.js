@@ -6,6 +6,7 @@ const { execFileSync, spawnSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const dist = path.join(root, 'dist');
+const requireWindows = process.env.MASKIT_REQUIRE_WINDOWS_ARTIFACT === '1';
 const expected = [
   'maskit-chrome.zip',
   'maskit-edge.zip',
@@ -15,6 +16,9 @@ const expected = [
   'maskit-cli.tar.gz',
   'maskit-mcp.tar.gz'
 ];
+if (requireWindows || fs.existsSync(path.join(dist, 'maskit-windows-agent.zip'))) {
+  expected.push('maskit-windows-agent.zip');
+}
 
 function listZip(file) {
   if (spawnSync('unzip', ['-Z1', file], { encoding: 'utf8' }).status === 0) {
@@ -46,7 +50,7 @@ for (const name of expected) {
   }
 }
 
-for (const name of expected.filter((file) => file.endsWith('.zip'))) {
+for (const name of expected.filter((file) => file.endsWith('.zip') && !file.includes('windows-agent'))) {
   const listing = listZip(path.join(dist, name));
   if (!listing.some((line) => line === 'manifest.json' || line.endsWith('/manifest.json') || line.replace(/^\.\//, '') === 'manifest.json')) {
     throw new Error(`${name} does not contain manifest.json`);
@@ -59,6 +63,17 @@ for (const name of expected.filter((file) => file.endsWith('.zip'))) {
   }
   const manifest = JSON.parse(extractZipFile(path.join(dist, name), 'manifest.json'));
   if (manifest.manifest_version !== 3) throw new Error(`${name} is not Manifest V3`);
+}
+if (expected.includes('maskit-windows-agent.zip')) {
+  const listing = listZip(path.join(dist, 'maskit-windows-agent.zip'));
+  const has = (name) => listing.some((line) => line.replace(/\\/g, '/').includes(name));
+  if (!has('publish/Maskit.Agent.exe') && !has('Maskit.Agent.exe')) {
+    throw new Error('maskit-windows-agent.zip missing Maskit.Agent.exe');
+  }
+  if (!has('maskit-core/rules') && !has('rules/pii.json')) {
+    throw new Error('maskit-windows-agent.zip missing packaged maskit-core rules');
+  }
+  if (!has('README.md')) throw new Error('maskit-windows-agent.zip missing README.md');
 }
 
 const checksums = path.join(dist, 'SHA256SUMS.txt');

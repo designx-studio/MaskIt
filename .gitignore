@@ -5,3 +5,10 @@ dist/
 .DS_Store
 Thumbs.db
 .env
+
+# .NET build outputs (never commit publish/bin/obj)
+**/bin/
+**/obj/
+*.user
+*.suo
+.vs/

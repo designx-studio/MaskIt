@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,41 +25,42 @@ jobs:
       - run: npm test
       - run: npm run test:regex
       - run: npm run test:browser-surface
-      - run: npm run build
-      - run: cd mcp-server && npm ci --ignore-scripts
-      - run: dotnet restore maskit-agent/Maskit.Agent/Maskit.Agent.csproj
-      - run: dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --no-restore
-      - name: Publish self-contained Windows agent
-        run: dotnet publish maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --output dist/windows-agent/publish
-      - name: Package CLI and MCP server
+      - run: npm run test:cross-adapter-parity
+      - name: Build all release artifacts (including Windows agent)
+        run: npm run build
+        env:
+          MASKIT_REQUIRE_WINDOWS_ARTIFACT: '1'
+      - name: Require full release set
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist/release/cli dist/release/mcp-server
-          cp mcp-server/cli.js dist/release/cli/
-          cp -R engine dist/release/cli/engine
-          cp mcp-server/config.js package.json dist/release/cli/
-          tar -czf dist/maskit-cli.tar.gz -C dist/release/cli .
-          cp -R mcp-server dist/release/mcp-server/package
-          rm -rf dist/release/mcp-server/package/node_modules dist/release/mcp-server/package/.git
-          tar -czf dist/maskit-mcp.tar.gz -C dist/release/mcp-server .
-      - name: Package Windows agent
-        shell: bash
-        run: |
-          set -euo pipefail
-          cp maskit-agent/README.md dist/windows-agent/
-          cd dist/windows-agent
-          zip -qr ../maskit-windows-agent.zip publish README.md
-      - name: Verify and checksum release assets
-        shell: bash
-        run: |
-          set -euo pipefail
-          for asset in maskit-chrome.zip maskit-firefox.zip maskit-edge.zip maskit-opera.zip maskit-extension.zip maskit-cli.tar.gz maskit-mcp.tar.gz maskit-windows-agent.zip; do test -s "dist/$asset"; done
-          (cd dist && sha256sum maskit-*.zip maskit-*.tar.gz > SHA256SUMS.txt)
+          for asset in \
+            maskit-chrome.zip \
+            maskit-edge.zip \
+            maskit-firefox.zip \
+            maskit-cli.tar.gz \
+            maskit-mcp.tar.gz \
+            maskit-windows-agent.zip \
+            SHA256SUMS.txt \
+            RELEASE-METADATA.json
+          do
+            test -s "dist/$asset"
+          done
+          # opera + extension remain part of the browser matrix
+          test -s dist/maskit-opera.zip
+          test -s dist/maskit-extension.zip
+      - run: npm run test:release-artifacts
+        env:
+          MASKIT_REQUIRE_WINDOWS_ARTIFACT: '1'
+      - run: npm run test:clean-install
+      - run: npm run test:windows-package
+        env:
+          MASKIT_REQUIRE_WINDOWS_ARTIFACT: '1'
+      - run: npm run check:browser-artifact
       - name: Attest release assets
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: 'dist/maskit-*.zip,dist/maskit-*.tar.gz,dist/SHA256SUMS.txt'
+          subject-path: 'dist/maskit-*.zip,dist/maskit-*.tar.gz,dist/SHA256SUMS.txt,dist/RELEASE-METADATA.json'
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -74,3 +75,4 @@ jobs:
             dist/maskit-mcp.tar.gz
             dist/maskit-windows-agent.zip
             dist/SHA256SUMS.txt
+            dist/RELEASE-METADATA.json

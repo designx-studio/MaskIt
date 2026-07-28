@@ -14,6 +14,8 @@ public class AuditLogger
     private readonly long _maxLogSize = 10 * 1024 * 1024;
     private int _eventCount;
     public int EventCount => _eventCount;
+    public string LogPath => _logPath;
+
     public AuditLogger(string logPath)
     {
         _logPath = logPath;
@@ -21,10 +23,19 @@ public class AuditLogger
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
         if (File.Exists(_logPath)) _eventCount = CountLines(_logPath);
     }
+
     public void LogEvent(AuditEvent auditEvent)
     {
-        auditEvent.EventId = $"evt_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Guid.NewGuid().ToString("N")[..6]}";
-        auditEvent.Timestamp = DateTimeOffset.UtcNow.ToString("O");
+        // Preserve producer ids when already set; never store raw values
+        if (string.IsNullOrWhiteSpace(auditEvent.EventId))
+            auditEvent.EventId = $"evt_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Guid.NewGuid().ToString("N")[..6]}";
+        if (string.IsNullOrWhiteSpace(auditEvent.Timestamp))
+            auditEvent.Timestamp = DateTimeOffset.UtcNow.ToString("O");
+        if (string.IsNullOrWhiteSpace(auditEvent.SchemaVersion))
+            auditEvent.SchemaVersion = "1.0";
+        if (string.IsNullOrWhiteSpace(auditEvent.Source))
+            auditEvent.Source = "windows";
+
         lock (_lock)
         {
             try
@@ -37,29 +48,46 @@ public class AuditLogger
                     if (File.Exists(backupPath)) File.Delete(backupPath);
                     File.Move(_logPath, backupPath);
                 }
-                var json = JsonSerializer.Serialize(auditEvent, new JsonSerializerOptions { WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull });
+                var json = JsonSerializer.Serialize(auditEvent, new JsonSerializerOptions
+                {
+                    WriteIndented = false,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+                // Defense in depth: refuse lines that look like they embed raw secrets fields
+                if (json.Contains("\"matchedValue\"", StringComparison.OrdinalIgnoreCase)
+                    || json.Contains("\"unmaskToken\"", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("Refusing to persist non-canonical audit event with raw/unmask fields");
                 File.AppendAllText(_logPath, json + Environment.NewLine);
                 _eventCount++;
             }
             catch (Exception ex) { Console.Error.WriteLine($"Audit log write error: {ex.Message}"); }
         }
     }
+
     private string? GetLastChainHash()
     {
         if (!File.Exists(_logPath)) return null;
         try
         {
             string? lastLine = null;
-            foreach (var line in File.ReadLines(_logPath)) if (!string.IsNullOrWhiteSpace(line)) lastLine = line;
-            return string.IsNullOrEmpty(lastLine) ? null : JsonSerializer.Deserialize<AuditEvent>(lastLine)?.ChainHash;
+            foreach (var line in File.ReadLines(_logPath))
+                if (!string.IsNullOrWhiteSpace(line)) lastLine = line;
+            if (string.IsNullOrEmpty(lastLine)) return null;
+            using var doc = JsonDocument.Parse(lastLine);
+            if (doc.RootElement.TryGetProperty("chainHash", out var ch)) return ch.GetString();
+            if (doc.RootElement.TryGetProperty("ChainHash", out var ch2)) return ch2.GetString();
+            return null;
         }
         catch { return null; }
     }
+
     private static string ComputeChainHash(string? previousHash, string eventId, string timestamp)
     {
         using var sha256 = SHA256.Create();
         return Convert.ToHexString(sha256.ComputeHash(Encoding.UTF8.GetBytes((previousHash ?? "0") + eventId + timestamp))).ToLowerInvariant();
     }
+
     public AuditEvent[] GetRecentEvents(int count = 100)
     {
         lock (_lock)
@@ -68,13 +96,33 @@ public class AuditLogger
             var lines = File.ReadAllLines(_logPath);
             var events = new System.Collections.Generic.List<AuditEvent>();
             var start = Math.Max(0, lines.Length - count);
-            for (var i = start; i < lines.Length; i++) if (!string.IsNullOrWhiteSpace(lines[i])) try { var evt = JsonSerializer.Deserialize<AuditEvent>(lines[i]); if (evt != null) events.Add(evt); } catch { }
+            for (var i = start; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                try
+                {
+                    var evt = JsonSerializer.Deserialize<AuditEvent>(lines[i], new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+                    if (evt != null) events.Add(evt);
+                }
+                catch { /* skip corrupt lines */ }
+            }
             return events.ToArray();
         }
     }
-    private static int CountLines(string path) { var count = 0; using var reader = new StreamReader(path); while (reader.ReadLine() != null) count++; return count; }
+
+    private static int CountLines(string path)
+    {
+        var count = 0;
+        using var reader = new StreamReader(path);
+        while (reader.ReadLine() != null) count++;
+        return count;
+    }
 }
 
+/// <summary>Canonical persisted audit event. Property names serialize as camelCase.</summary>
 public class AuditEvent
 {
     public string SchemaVersion { get; set; } = "1.0";
@@ -95,5 +143,18 @@ public class AuditEvent
     public string? ChainHash { get; set; }
     [JsonIgnore] public AppContextInfo? AppContext { get; set; }
 }
-public class PolicyInfo { public string Name { get; set; } = "default"; public string Version { get; set; } = "1"; public string Result { get; set; } = "redact"; }
-public class AppContextInfo { public string? ProcessName { get; set; } public bool AiDetected { get; set; } public float AiConfidence { get; set; } public bool IsLocal { get; set; } }
+
+public class PolicyInfo
+{
+    public string Name { get; set; } = "default";
+    public string Version { get; set; } = "1";
+    public string Result { get; set; } = "redact";
+}
+
+public class AppContextInfo
+{
+    public string? ProcessName { get; set; }
+    public bool AiDetected { get; set; }
+    public float AiConfidence { get; set; }
+    public bool IsLocal { get; set; }
+}

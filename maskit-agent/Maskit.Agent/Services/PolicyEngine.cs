@@ -93,7 +93,10 @@ public class PolicyEngine
 
         foreach (var finding in findings)
         {
-            var typeBase = finding.Type.StartsWith("CUSTOM:") ? finding.Type : finding.Type;
+            // Match Node getPolicyAction: strip CUSTOM: prefix; API_KEY already normalized by RuleEngine
+            var typeBase = finding.Type.StartsWith("CUSTOM:", StringComparison.Ordinal)
+                ? finding.Type["CUSTOM:".Length..]
+                : finding.Type;
             var action = GetAction(policy, typeBase);
 
             decisions.Add(new PolicyDecision

@@ -60,7 +60,13 @@ public class TrayApplication : ApplicationContext
         var events = _auditLogger.GetRecentEvents(10);
         if (events.Length == 0) { MessageBox.Show("No audit events recorded yet.", "Maskit Audit Log", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
         var message = "Last 10 audit events:\n\n";
-        foreach (var evt in events) { var time = DateTimeOffset.FromUnixTimeMilliseconds(evt.Timestamp).LocalDateTime; message += $"{time:HH:mm:ss} | {evt.Type} | {evt.Action} | {evt.App}\n"; }
+        foreach (var evt in events)
+        {
+            var time = DateTimeOffset.TryParse(evt.Timestamp, out var ts)
+                ? ts.LocalDateTime
+                : DateTime.Now;
+            message += $"{time:HH:mm:ss} | {evt.DataType} | {evt.Action} | {evt.Application}\n";
+        }
         MessageBox.Show(message, "Maskit Audit Log", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 

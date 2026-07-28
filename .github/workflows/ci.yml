@@ -26,6 +26,7 @@ jobs:
       - run: npm run test:canonical-events
       - run: npm run test:adapter-events
       - run: npm test
+      - run: npm run test:cross-adapter-parity
       - run: cd mcp-server && npm ci --ignore-scripts
       - run: node mcp-server/test.js
       - run: node mcp-server/integration-test.js
@@ -46,9 +47,27 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - run: npm ci
       - run: dotnet restore maskit-agent/Maskit.Agent/Maskit.Agent.csproj
-      - run: dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --no-restore
-      - run: dotnet run --project maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --no-build -- --parity
+      - run: npm run build:windows
+      - name: Require Windows artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/maskit-windows-agent.zip
+      - run: npm run test:windows-package
+        env:
+          MASKIT_REQUIRE_WINDOWS_ARTIFACT: '1'
+      - run: dotnet run --project maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release -- --parity
+      - run: npm run test:cross-adapter-parity
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maskit-windows-agent
+          path: dist/maskit-windows-agent.zip
