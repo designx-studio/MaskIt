@@ -22,6 +22,7 @@ jobs:
       - run: npm run lint
       - run: npm run test:regex
       - run: npm run test:browser-surface
+      - run: npm run test:stabilization
       - run: npm test
       - run: cd mcp-server && npm ci --ignore-scripts
       - run: node mcp-server/test.js
