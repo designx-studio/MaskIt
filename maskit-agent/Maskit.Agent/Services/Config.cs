@@ -12,7 +12,6 @@ public class AgentConfig
     public string RulesPath { get; set; } = "";
     public string AuditLogPath { get; set; } = "";
     public string ConfigPath { get; set; } = "";
-    public int ClipboardCheckIntervalMs { get; set; } = 500;
 
     public static AgentConfig Load()
     {
@@ -24,7 +23,6 @@ public class AgentConfig
         var repoRules = Path.GetFullPath(Path.Combine(exeDir, "..", "..", "..", "..", "maskit-core", "rules"));
         var rulesPath = Directory.Exists(packagedRules) ? packagedRules : repoRules;
         var config = new AgentConfig { ConfigPath = configPath, RulesPath = rulesPath, AuditLogPath = Path.Combine(configDir, "audit.jsonl") };
-
         if (File.Exists(configPath))
         {
             try
@@ -35,7 +33,6 @@ public class AgentConfig
                     config.Enabled = loaded.Enabled;
                     config.ClipboardMonitoring = loaded.ClipboardMonitoring;
                     config.Notifications = loaded.Notifications;
-                    config.ClipboardCheckIntervalMs = Math.Clamp(loaded.ClipboardCheckIntervalMs, 100, 5000);
                     if (!string.IsNullOrWhiteSpace(loaded.RulesPath)) config.RulesPath = loaded.RulesPath;
                     if (!string.IsNullOrWhiteSpace(loaded.AuditLogPath)) config.AuditLogPath = loaded.AuditLogPath;
                 }
