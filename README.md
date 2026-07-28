@@ -1,61 +1,20 @@
 # MaskIt
 
-Local-first privacy layer that detects sensitive data before it reaches AI tools. Maskit processes content locally in the browser, MCP server, CLI, or Windows agent and redacts or blocks it before transmission.
+MaskIt is a local-first privacy layer that detects sensitive data before it reaches AI tools. It processes content locally in the browser, MCP server, CLI, or Windows agent and redacts or blocks it before transmission.
+
+## Download first
+
+Normal users should use the [public website](https://designx-studio.github.io/MaskIt/) and [download page](https://designx-studio.github.io/MaskIt/download/index.html). GitHub Releases are the distribution channel for browser extensions, the Windows agent, the MCP server, and the CLI. You do not need to clone or compile the repository to use a release.
 
 ## Components
 
-- **Browser extension**: Chrome/Edge/Firefox/Opera Manifest V3 protection for supported AI sites
-- **MCP server**: Node.js tools for Claude Desktop, Cursor, and other MCP clients
-- **CLI and developer integrations**: scan text/files, redact, assess risk, GitHub Action, Express middleware, and integration templates
-- **Windows agent**: .NET 8 beta clipboard protection using shared rules and policies
-- **Shared detection engine**: JavaScript core with policy, risk, audit, and killswitch support
-
-## Requirements
-
-- Node.js 18 or higher
-- .NET 8 SDK (Windows agent only)
-- Chrome or Edge (browser extension)
-
-## Setup
-
-```bash
-npm ci
-npm test
-```
-
-MCP server:
-```bash
-cd mcp-server
-npm ci
-node server.js
-```
-
-Windows agent:
-```bash
-dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj \
-  --configuration Release
-```
-
-## Features
-
-### Detection
-
-- **PII**: EMAIL, PHONE, SSN, PASSPORT, and IP_ADDRESS
-- **Financial**: CARD with Luhn validation, BANK_ACCOUNT/IBAN, and MPESA
-- **Secrets**: 30+ provider patterns including OpenAI, Anthropic, AWS, GCP, Azure, GitHub, GitLab, Slack, Stripe, Twilio, SendGrid, Cloudflare, Auth0, Firebase, Docker Hub, and Terraform Cloud
-- **Custom rules**: locally executed regex rules with length and unsafe-pattern checks
-
-### Protection controls
-
-- Per-app and per-context policies with `allow`, `redact`, and `block` actions
-- Local structured audit log with hashed sensitive tokens, retention controls, chain hashes, and CSV export in the browser UI
-- Admin killswitch with duration- or schedule-based restrictions and exemptions
-- Audited temporary unmask flow
-- Tagged, stars, and custom redaction formats
+- **Browser extension**: Chrome, Edge, Firefox, and Opera Manifest V3 protection for supported AI sites.
+- **MCP server**: Node.js tools for Claude Desktop, Cursor, and compatible MCP clients.
+- **CLI and developer integrations**: scan text/files, redact, assess risk, GitHub Action, Express middleware, and integration templates.
+- **Windows agent**: .NET 8 clipboard protection with shared rules and policies.
+- **Shared detection engine**: JavaScript core with policy, risk, audit, and killswitch support.
 
 ## Supported AI sites
-
-The browser extension uses these exact host patterns:
 
 - `https://chatgpt.com/*`
 - `https://chat.openai.com/*`
@@ -64,38 +23,57 @@ The browser extension uses these exact host patterns:
 - `https://copilot.microsoft.com/*`
 - `https://*.cursor.com/*`
 
-## Integrations
+## Source setup
 
-### MCP server tools
-
-`scan_text`, `redact_text`, `evaluate_policy`, `scan_response`, `get_status`, `get_rules`, and `get_audit_log`.
-
-### CLI
+Source setup is for contributors and maintainers:
 
 ```bash
-node mcp-server/cli.js scan "text"
-node mcp-server/cli.js scan-file ./file.txt
-node mcp-server/cli.js redact "text"
-node mcp-server/cli.js risk "text"
+npm ci
+npm test
+npm run test:regex
+npm run build
 ```
 
-### Developer integrations
+MCP server development:
 
-- GitHub Action: `mcp-server/integrations/github-action.js` scans staged changes for secrets
-- Express middleware: `mcp-server/integrations/express-middleware.js`
-- Slack and Discord: `slack-bot.js` and `discord-bot.js` are integration templates; bring your own bot framework and credentials
+```bash
+cd mcp-server
+npm ci
+node server.js
+```
 
-## Windows agent
+Windows agent development requires the .NET 8 SDK:
 
-The Windows agent is beta, requires .NET 8, and protects clipboard content only when the optional local monitor is enabled. See [maskit-agent/README.md](maskit-agent/README.md).
+```bash
+dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release
+```
 
-## Status
+## CLI examples
 
-v2.4.0 — active development. Risky custom-regex alternation patterns are rejected at rule-add time. The full `safe-regex` CI audit should still be run with `npm ci` and `npm run test:regex` before release.
+```bash
+node mcp-server/cli.js scan "Email john@example.com"
+node mcp-server/cli.js scan-file ./file.txt
+node mcp-server/cli.js redact "API key sk-example-abcdefghijklmnopqrstuv"
+node mcp-server/cli.js risk "customer@example.com"
+```
 
-## Privacy
+## Documentation
 
-Maskit is local-first and does not upload page content or clipboard text. See [privacy-policy.html](privacy-policy.html).
+- [Installation](docs/installation.md)
+- [Browser extension](docs/browser-extension.md)
+- [Windows agent](docs/windows-agent.md)
+- [MCP server](docs/mcp-server.md)
+- [CLI](docs/cli.md)
+- [Architecture](docs/architecture.md)
+- [Privacy](docs/privacy.md)
+- [Security model](docs/security-model.md)
+- [FAQ](docs/faq.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Release artifacts](docs/release-artifacts.md)
+
+## Privacy and security
+
+MaskIt is local-first and does not upload page content or clipboard text. See [Privacy](docs/privacy.md) and the [Security model](docs/security-model.md).
 
 ## License
 
