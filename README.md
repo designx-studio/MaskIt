@@ -4,7 +4,7 @@ MaskIt is a local-first privacy layer that detects sensitive data before it reac
 
 ## Download first
 
-Normal users should use the [public website](https://designx-studio.github.io/MaskIt/) and [download page](https://designx-studio.github.io/MaskIt/download/index.html). GitHub Releases are the distribution channel for browser extensions, the Windows agent, the MCP server, and the CLI. You do not need to clone or compile the repository to use a release.
+Use the [public website](https://designx-studio.github.io/MaskIt/) and [download page](https://designx-studio.github.io/MaskIt/download/index.html). GitHub Releases are the distribution channel for browser extensions, the Windows agent, the MCP server, and the CLI. You do not need to clone or compile the repository to use a release.
 
 ## Components
 
@@ -57,6 +57,17 @@ node mcp-server/cli.js redact "API key sk-example-abcdefghijklmnopqrstuv"
 node mcp-server/cli.js risk "customer@example.com"
 ```
 
+## Creating a release
+
+The repository release workflow is triggered by semantic version tags. Before tagging, run the checklist in [RELEASE.md](RELEASE.md), confirm `npm test` and `npm run build` pass, and confirm the Windows agent builds with .NET 8. The exact production publish command is:
+
+```bash
+git tag v3.0.0
+git push origin v3.0.0
+```
+
+GitHub Actions then creates the release and attaches the browser extension ZIPs, Windows agent ZIP, MCP package, and CLI package. Download links on the website use the latest-release URL pattern and do not need version edits.
+
 ## Documentation
 
 - [Installation](docs/installation.md)
@@ -69,7 +80,7 @@ node mcp-server/cli.js risk "customer@example.com"
 - [Security model](docs/security-model.md)
 - [FAQ](docs/faq.md)
 - [Troubleshooting](docs/troubleshooting.md)
-- [Release artifacts](docs/release-artifacts.md)
+- [Release process](RELEASE.md)
 
 ## Privacy and security
 
