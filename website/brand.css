@@ -1,0 +1,1 @@
+:root{--maskit-ink:#040f16;--maskit-blue:#0b4f6c;--maskit-sky:#01baef;--maskit-brick:#b80c09;--maskit-ghost:#fbfbff}.maskit-brand{display:inline-flex;align-items:center;gap:10px;font:700 14px/1 system-ui,sans-serif;letter-spacing:.08em;color:var(--maskit-ink)}.maskit-brand img{width:30px;height:30px;display:block}.maskit-brand.inverse{color:var(--maskit-ghost)}
