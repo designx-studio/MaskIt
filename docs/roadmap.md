@@ -1,20 +1,176 @@
-# Maskit official product roadmap
+```md
+# Maskit Official Product Roadmap
 
 ## Vision
 
 Maskit controls sensitive context before it reaches AI systems, agents, tools, and workflows.
 
-Maskit is not becoming generic DLP, phishing protection, a secure browser, an AI assistant, or a cloud proxy that sees every prompt. It is becoming an **AI Context Security Platform** with local enforcement first and optional management later.
+Maskit is not becoming a generic Data Loss Prevention (DLP) product, phishing protection tool, secure browser, AI assistant, or cloud proxy that captures every prompt.
 
-## Current maturity
+Maskit is becoming an **AI Context Security Platform** built around one principle:
 
-Shipped foundations:
+> Security decisions should happen at the point where sensitive context moves.
+
+The future of work will involve humans, AI assistants, coding agents, autonomous workflows, Model Context Protocol (MCP) tools, repositories, files, and automated systems sharing information continuously.
+
+Traditional security controls were designed around applications and networks. AI introduces a new security boundary: context.
+
+Maskit provides a local-first security layer that understands:
+
+- What information is being shared
+- Where it is being sent
+- Who or what is requesting it
+- What policy applies
+- What action should happen
+
+The enforcement happens locally first.
+
+Management, reporting, and governance can be added later without requiring raw business data or conversations to leave the organization.
+
+---
+
+# Product Philosophy
+
+Maskit follows three security principles:
+
+## 1. Local enforcement first
+
+Sensitive information should be inspected and protected as close as possible to the user action.
+
+Maskit should not require sending raw prompts, clipboard contents, files, or secrets to a cloud service.
+
+The local engine remains responsible for:
+
+- Detection
+- Classification
+- Policy evaluation
+- Redaction
+- Blocking
+- Evidence generation
+
+Cloud management should only handle:
+
+- Policy distribution
+- Device management
+- Security posture
+- Aggregated evidence
+
+---
+
+## 2. Solve the problems that are technically solvable
+
+AI security conversations often combine multiple problems under one category.
+
+Maskit separates them.
+
+## Problem 1: Secrets and credentials
+
+Examples:
+
+- API keys
+- Cloud credentials
+- Private keys
+- Database passwords
+- Tokens
+
+This is a deterministic problem.
+
+High confidence detection is possible through:
+
+- Pattern matching
+- Secret formats
+- Entropy analysis
+- Known provider formats
+- Validation checks
+
+Maskit should provide strong protection here.
+
+However, the long-term security goal is also making leaked credentials useless.
+
+Organizations should still implement:
+
+- Short-lived credentials
+- Identity federation
+- Secret vaults
+- Automated rotation
+- Least privilege access
+- Push protection
+
+Maskit protects the context boundary, but it should not pretend to replace mature identity security.
+
+---
+
+## Problem 2: Structured personal information
+
+Examples:
+
+- Credit card numbers
+- Government identifiers
+- Health identifiers
+- Customer records
+
+These are pattern-based security problems.
+
+Maskit can provide:
+
+- Detection
+- Classification
+- Redaction
+- Policy enforcement
+- Audit evidence
+
+Confidence is generally good because the information has structure.
+
+---
+
+## Problem 3: Unstructured business context
+
+Examples:
+
+- Customer strategy
+- Pricing negotiations
+- Internal architecture
+- Product roadmaps
+- Confidential business discussions
+- Customer-specific debugging information
+
+This is the hardest category.
+
+The industry frequently overpromises here.
+
+Detection quality depends on:
+
+- Data classification maturity
+- Company policies
+- Context awareness
+- User behavior
+- Business understanding
+
+Maskit should approach this carefully.
+
+The goal is not to claim perfect detection.
+
+The goal is:
+
+- Better context understanding
+- Explainable risk signals
+- Policy guidance
+- User awareness
+- Safer workflows
+
+---
+
+# Current Product Maturity
+
+## Shipped Foundations
+
+Maskit currently has:
 
 - Browser extension for supported AI hosts
 - Local detection engine
 - Secret and API key detection
-- PII detection
-- Financial data detection
+- Personal information detection
+- Financial information detection
 - Redaction engine
 - Allow, redact, and block policy actions
 - Local audit logging
@@ -23,230 +179,760 @@ Shipped foundations:
 - CLI foundation
 - Open source MIT distribution
 
-Still immature:
+---
 
-- Production release distribution and upgrade confidence
-- Stable cross surface event and policy contracts
-- Detection explanations and false positive controls
+# Current Weaknesses
+
+## Product maturity gaps
+
+- Production release distribution
+- Upgrade confidence
+- Cross-platform consistency
+- Stable event contracts
+- Policy synchronization
+- Detection explanations
+- False positive controls
+- Enterprise deployment workflow
+
+## Enterprise gaps
+
 - Central policy management
-- Device enrollment and fleet visibility
-- File and repository boundaries
-- MCP permissions and approval workflows
-- Enterprise reporting and integrations
+- Device enrollment
+- Fleet visibility
+- File boundaries
+- Repository boundaries
+- MCP permissions
+- Agent controls
+- Reporting
+- Identity integration
 
-## 18 month roadmap
+---
 
-### Phase 1, production readiness, 0 to 3 months
+# Competitive Lessons
 
-| Feature | User problem | Why Maskit should build it | Customer value | Complexity | Dependencies | Revenue impact | Priority |
-|---|---|---|---|---|---|---|---|
-| Release automation | Users cannot reliably install the product | Distribution is the current adoption gate | Trustworthy downloads and upgrades | Medium | Build scripts, CI | High | P0 |
-| Versioning and checksums | Buyers need artifact confidence | Security software must be verifiable | Safer rollout and support | Low | Release workflow | Medium | P0 |
-| Installation experience | First success takes too much work | Developer adoption depends on time to value | Install in minutes, not hours | Low | Package names, docs | High | P0 |
-| Detection accuracy | False positives cause disablement | Detection trust is the core product loop | Fewer interruptions and support cases | Medium | Fixtures and benchmarks | High | P0 |
-| Detection explanations | Users do not know why data matched | Explainability improves confidence | Faster decisions and safer exceptions | Medium | Finding metadata | High | P0 |
-| Custom rules | Teams have internal identifiers | Local extensibility is a differentiator | Protect company specific data | Low | Regex safety checks | Medium | P0 |
-| Policy separation | Detection and action logic can drift | One deterministic policy contract is required | Consistent behavior across surfaces | High | Context and event schema | Very high | P0 |
-| Policy simulation | Teams fear blocking useful work | Dry run is needed before enforcement | Safer rollout | Medium | Policy engine | High | P0 |
-| CLI and MCP quick starts | Developers cannot evaluate quickly | Vexp style onboarding is a clear market advantage | Faster pilots | Low | Docs and examples | High | P0 |
-| Security testing | Sensitive software needs proof | Regression and package tests create trust | Safer releases | Medium | CI and fixtures | High | P0 |
+Maskit should learn from the market without becoming a copy of existing products.
 
-**Phase 1 milestone:** a developer installs Maskit, scans a prompt, understands the finding, changes a policy, and sees a local audit event in five minutes. No release moves forward until tests, packages, docs, and download links agree.
+## AI Governance Platforms
 
-### Phase 2, AI security control layer, 3 to 6 months
+Lesson:
 
-| Feature | User problem | Why Maskit should build it | Customer value | Complexity | Dependencies | Revenue impact | Priority |
-|---|---|---|---|---|---|---|---|
-| Context classification | Text alone does not express destination or actor | Policy needs surface, app, actor, and destination | Better decisions than generic DLP | High | Context schema | Very high | P0 |
-| Risk scoring | Teams cannot prioritize events | Explainable risk supports rollout | Clear remediation order | Medium | Classification and policy | High | P1 |
-| Signed policy bundles | Local rules can diverge or be tampered with | Teams need trusted shared configuration | Controlled rollout | Medium | Policy schema | High | P0 |
-| File protection | Agents can expose sensitive files | File access is the next context boundary | Safer coding workflows | High | Context adapters | Very high | P1 |
-| Repository protection | Source code and history need scope | Repository identity gives policy meaning | Protect proprietary code | High | Git integration | Very high | P1 |
-| CI and pre commit scanning | Secrets are exposed before a prompt exists | Catch leakage earlier in the developer path | Fewer incidents | Medium | CLI and policy engine | High | P0 |
-| MCP permissions | Tool calls can access too much | MCP is the natural expansion from current server work | Least privilege for AI tools | High | MCP gateway contract | Very high | P1 |
-| Tool approval workflow | High risk actions need a human checkpoint | Approval bridges safety and productivity | Safer agent adoption | High | Permissions and identity | Very high | P1 |
+Enterprise buyers need:
 
-All surfaces use the same contract:
+- Visibility
+- Policy
+- Reporting
+- Governance
 
-```text
-Browser -> Windows agent -> CLI -> CI/CD -> MCP -> future agent gateway
-                     \-> context normalization
-                         -> detection and classification
-                         -> policy decision
-                         -> action enforcement
-                         -> local evidence
+Maskit should eventually support these.
+
+However, governance should come after reliable local enforcement.
+
+---
+
+## AI Workflow Platforms
+
+Lesson:
+
+AI actions need:
+
+- Permissions
+- Approval
+- Audit trails
+
+Maskit should expand from protecting information into protecting AI actions.
+
+---
+
+## AI Compliance Platforms
+
+Lesson:
+
+Customers value:
+
+- Structured findings
+- Risk scores
+- Evidence
+- Reporting
+
+Maskit should produce useful security evidence without collecting raw content.
+
+---
+
+## Developer AI Security Tools
+
+Lesson:
+
+Adoption happens when:
+
+- Installation is simple
+- No account is required initially
+- Local execution works
+- Technical proof is visible
+
+Developer trust is Maskit's strongest entry point.
+
+---
+
+# Product Positioning
+
+## Category
+
+AI Context Security Platform
+
+## Positioning Statement
+
+Maskit is the local AI security layer that detects sensitive information, enforces policy, and governs AI context before humans or agents share, access, or execute work.
+
+---
+
+# Ideal Customer
+
+## Initial Market
+
+Engineering-led companies:
+
+- 50 to 500 employees
+- Heavy AI adoption
+- Developers using AI coding tools
+- Security-conscious teams
+- Limited security staff
+
+## Users
+
+- Developers
+- Platform engineers
+- Security engineers
+- IT administrators
+- Engineering managers
+- Compliance teams
+
+## Buyers
+
+- Chief Information Security Officer (CISO)
+- VP Engineering
+- IT Director
+- Security Operations
+- Privacy teams
+
+---
+
+# Core Advantage
+
+Maskit creates one security boundary across:
+
+- Browser AI usage
+- Clipboard
+- Command line
+- Continuous Integration (CI)
+- MCP tools
+- Coding agents
+- Files
+- Repositories
+
+The same policy engine decides:
+
+- Detect
+- Classify
+- Allow
+- Warn
+- Redact
+- Block
+- Record evidence
+
+---
+
+# 18 Month Roadmap
+
+# Phase 1: Production Foundation
+
+## Timeline
+
+0 to 3 months
+
+## Goal
+
+Make Maskit installable, trustworthy, and usable.
+
+---
+
+## Release automation
+
+Problem:
+
+Users cannot reliably install security software.
+
+Build:
+
+- Automated releases
+- Versioning
+- Checksums
+- Package validation
+- Upgrade process
+
+Priority:
+
+P0
+
+---
+
+## Installation experience
+
+Goal:
+
+A new user installs Maskit within minutes.
+
+Deliver:
+
+- Browser installation
+- CLI installation
+- MCP setup
+- Windows setup
+- Troubleshooting guides
+
+Priority:
+
+P0
+
+---
+
+## Detection improvements
+
+Build:
+
+- Detection benchmarks
+- False positive tracking
+- Test fixtures
+- Confidence scoring
+
+Priority:
+
+P0
+
+---
+
+## Detection explanations
+
+Every finding should explain:
+
+- What was detected
+- Why it matched
+- Confidence level
+- Recommended action
+
+Priority:
+
+P0
+
+---
+
+## Policy engine separation
+
+Separate:
+
+Detection
+
+from
+
+Decision
+
+from
+
+Action
+
+Architecture:
+
 ```
 
-### Phase 3, enterprise management, 6 to 12 months
+Context
+|
+Detection
+|
+Classification
+|
+Policy Decision
+|
+Action
+|
+Evidence
 
-| Feature | User problem | Why Maskit should build it | Customer value | Complexity | Dependencies | Revenue impact | Priority |
-|---|---|---|---|---|---|---|---|
-| Organization accounts | Teams need shared ownership | Enables paid team deployment | Accountability and support | Medium | Identity model | High | P1 |
-| Device enrollment | Admins cannot control rollout | Management is needed after local enforcement works | Fleet consistency | High | Agent identity | Very high | P1 |
-| Policy management | Teams need versioning and rollback | Central policy is the paid control plane | Safer governance | High | Signed bundles | Very high | P0 |
-| Fleet visibility | Security teams need health without raw prompts | Non sensitive state is enough for first management layer | Deployment confidence | Medium | Device events | High | P1 |
-| Security dashboard | Event review is fragmented | Enterprise buyers need operational visibility | Faster response | High | Evidence schema | High | P1 |
-| Evidence reporting | Audits require stable proof | Exportable evidence supports evaluations | Shorter security reviews | Medium | Audit schema | High | P1 |
-| User roles | Admin and operator scopes differ | Least privilege must apply to management | Safer administration | Medium | Organization accounts | High | P1 |
-| SSO | Enterprise teams need controlled access | Standard buyer requirement | Easier procurement | Medium | Identity model | Medium | P2 |
-| SIEM export | Security teams need existing workflows | Evidence should flow into operations | Better incident response | Medium | Event schema | Medium | P2 |
+```
 
-The management cloud stores by default:
+Priority:
 
-- Organization and user identifiers
-- Device enrollment and software version
-- Policy versions, approvals, and rollout state
-- Aggregated counts and risk categories
-- Audit metadata without raw values
-- Health and connectivity state
+P0
 
-The management cloud does not store by default:
+---
+
+## Policy simulation
+
+Before blocking:
+
+Users should test:
+
+- What would match
+- What would happen
+- What exceptions apply
+
+Priority:
+
+P0
+
+---
+
+## CLI and MCP onboarding
+
+Developer experience should match modern developer tools:
+
+- One command install
+- Examples
+- Quick tests
+- Clear output
+
+Priority:
+
+P0
+
+---
+
+# Phase 2: AI Security Control Layer
+
+## Timeline
+
+3 to 6 months
+
+## Goal
+
+Move from detection into context security.
+
+---
+
+# Context classification
+
+Maskit must understand:
+
+- Data type
+- Destination
+- Application
+- User
+- Agent
+- Risk
+
+Priority:
+
+P0
+
+---
+
+# Risk scoring
+
+Provide:
+
+- Explainable risk
+- Severity
+- Recommended action
+
+Priority:
+
+P1
+
+---
+
+# Signed policy bundles
+
+Allow organizations to:
+
+- Create policies
+- Approve policies
+- Distribute policies
+- Roll back changes
+
+Priority:
+
+P0
+
+---
+
+# CI and developer protection
+
+Add:
+
+- Pre-commit scanning
+- Repository scanning
+- Secret detection
+- AI workflow checks
+
+Priority:
+
+P0
+
+---
+
+# File protection
+
+Protect:
+
+- Documents
+- Configuration files
+- Local projects
+
+Priority:
+
+P1
+
+---
+
+# Repository protection
+
+Protect:
+
+- Source code
+- Git history
+- Proprietary projects
+
+Priority:
+
+P1
+
+---
+
+# MCP permissions
+
+AI tools need controlled access.
+
+Build:
+
+- Tool permissions
+- Resource permissions
+- Approval requirements
+
+Priority:
+
+P1
+
+---
+
+# Phase 3: Enterprise Management
+
+## Timeline
+
+6 to 12 months
+
+## Goal
+
+Create a paid management platform.
+
+---
+
+Features:
+
+- Organization accounts
+- Device enrollment
+- Central policy management
+- Fleet visibility
+- Security dashboard
+- Evidence reporting
+- User roles
+- Single Sign-On (SSO)
+- Security Information and Event Management (SIEM) export
+
+---
+
+# Cloud Management Principles
+
+The cloud layer stores:
+
+- Organization information
+- Device status
+- Policy versions
+- Risk categories
+- Security metadata
+
+The cloud does not store:
 
 - Raw prompts
 - Clipboard contents
-- Raw file contents
-- Secret values
-- Full model conversations
+- Secrets
+- Private files
+- Conversations
 
-Local enforcement remains available when the management service is unreachable.
+Local enforcement continues when cloud services are unavailable.
 
-### Phase 4, AI agent security platform, 12 to 18 months
+---
 
-| Feature | Build decision | Why | Market value | Complexity | Priority |
-|---|---|---|---|---|---|
-| MCP security gateway | Build | It extends current MCP work into a governed boundary | Very high | High | P0 |
-| Agent permissions | Build | Data redaction is not enough when agents can act | Very high | High | P0 |
-| Agent identity | Build carefully | Policies need a stable actor separate from the model | High | High | P1 |
-| Repository boundaries | Build | Coding agents need explicit scope | Very high | High | P0 |
-| File access control | Build | Least privilege must apply to context assembly | Very high | High | P0 |
-| Approval workflows | Build | High risk actions need review | High | High | P1 |
-| Agent activity timeline | Build | Security teams need evidence of actions | High | Medium | P1 |
-| Tool trust scoring | Build after inventory | MCP supply chain risk is real, but scoring needs data | High | High | P1 |
+# Phase 4: AI Agent Security Platform
 
-## Technical architecture evolution
+## Timeline
 
-### Current components
+12 to 18 months
 
-Browser extension, Windows agent, MCP server, CLI, shared detection engine, sanitizer, policy actions, and local audit log.
+## Goal
 
-### Future components
+Protect autonomous AI workflows.
 
-```text
-Surface adapters
-  Browser | Windows | CLI | CI | MCP client | Agent gateway
-        -> Context normalization layer
-        -> Detection and classification engine
-        -> Policy decision engine
-        -> Action enforcement
-        -> Evidence event system
-        -> Optional management cloud
+---
+
+# MCP Security Gateway
+
+Build:
+
+- Tool inspection
+- Permission control
+- Policy enforcement
+- Audit trail
+
+---
+
+# Agent Permissions
+
+Agents should not automatically access:
+
+- Every file
+- Every repository
+- Every tool
+
+Build:
+
+- Scope controls
+- Permissions
+- Approvals
+
+---
+
+# Repository and File Boundaries
+
+AI coding agents require:
+
+- Explicit access boundaries
+- Sensitive file protection
+- Change monitoring
+
+---
+
+# Agent Activity Timeline
+
+Provide:
+
+- Actions performed
+- Tools called
+- Data accessed
+- Approvals granted
+
+---
+
+# Technical Architecture
+
 ```
 
-Create:
+Browser
+Windows Agent
+CLI
+CI/CD
+MCP Client
+Agent Gateway
 
-- Versioned context and event schemas
-- Pure policy decision module
-- Classification and confidence layer
-- File, repository, and tool adapters
-- Local MCP gateway
-- Signed policy distribution
-- Management API for policy and non sensitive evidence
+```
+    |
+```
 
-Merge:
+Context Normalization
 
-- Browser, engine, MCP, CLI, and Windows policy vocabulary
-- Audit event formats
-- Detection fixtures and parity tests
+```
+    |
+```
 
-Keep local:
+Detection Engine
 
-- Raw prompts
-- Clipboard content
-- Raw files
-- Secret values
-- Redaction and blocking decisions
-- Enforcement when cloud management is unavailable
+```
+    |
+```
 
-Required APIs:
+Classification Engine
 
-- `scanContext(context, policy)`
-- `classifyContext(context)`
-- `evaluatePolicy(context, findings, policy)`
-- `transformContext(context, decision)`
-- `recordEvidence(event)`
-- `syncPolicyBundle(bundle)`
-- `reportDeviceState(state)`
+```
+    |
+```
 
-## Business roadmap
+Policy Decision Engine
 
-### Stage 1, developers and technical teams
+```
+    |
+```
 
-Free offering: browser extension, local CLI, basic MCP server, shared engine, local audit, and open source code.
+Action Enforcement
 
-Customers pay for reliability, support, signed policies, and team configuration.
+```
+    |
+```
 
-### Stage 2, engineering organizations
+Evidence System
 
-Professional offering: shared policy bundles, device enrollment, policy simulation, CI controls, audit exports, and management dashboard.
+```
+    |
+```
 
-Customers pay for managed users or devices, deployment control, and support.
+Optional Management Cloud
 
-### Stage 3, enterprise security teams
+```
 
-Enterprise offering: SSO, roles, fleet management, MCP gateway, tool permissions, approvals, SIEM export, and evidence workflows.
+---
 
-Customers pay for governance, scale, integrations, and assurance.
+# Core APIs
 
-### Stage 4, MSP channel
+```
 
-MSP offering: multi tenant policy management, assessment reports, branded evidence exports, and managed rollout.
+scanContext(context, policy)
 
-Build this after the direct product has stable controls. MSP packaging should amplify the product, not distract from it.
+classifyContext(context)
 
-## Features to avoid
+evaluatePolicy(context, findings, policy)
 
-- Generic endpoint DLP
-- Full secure browser isolation
-- Consumer phishing and scam detection
-- Cloud proxy that requires raw prompt capture
+transformContext(context, decision)
+
+recordEvidence(event)
+
+syncPolicyBundle(bundle)
+
+reportDeviceState(state)
+
+```
+
+---
+
+# Business Roadmap
+
+## Stage 1
+
+Developers and technical teams.
+
+Free:
+
+- Browser extension
+- CLI
+- MCP server
+- Local engine
+- Audit logs
+
+Paid:
+
+- Support
+- Signed policies
+- Team controls
+
+---
+
+## Stage 2
+
+Engineering organizations.
+
+Paid features:
+
+- Policy management
+- Device enrollment
+- CI controls
+- Audit reporting
+
+---
+
+## Stage 3
+
+Enterprise security teams.
+
+Paid features:
+
+- SSO
+- Roles
+- Fleet management
+- Agent governance
+- SIEM integration
+
+---
+
+## Stage 4
+
+Managed Service Provider (MSP) channel.
+
+Build:
+
+- Multi tenant management
+- Customer assessments
+- Managed deployment
+- Security reports
+
+Only after the core product is mature.
+
+---
+
+# Features Maskit Will Not Build
+
+Maskit will avoid:
+
+- Generic DLP replacement
+- Secure browser replacement
 - AI model hosting
+- Cloud prompt proxy
+- Consumer phishing protection
 - Broad compliance certification claims
-- Silent policy automation
-- Dashboard first development before local enforcement is reliable
+- Dashboard-first development
 
-## Biggest risks
+---
 
-1. Scope expansion into generic DLP.
-2. False positives that teach users to disable protection.
-3. Policy drift between browser, MCP, CLI, and Windows.
-4. Agent permissions built before a stable context schema.
-5. Cloud management that undermines local first trust.
-6. Unsupported marketing claims.
-7. Release and installation friction.
+# First Ten Engineering Priorities
 
-## First ten engineering priorities
+1. Ship verified v3 release.
+2. Create stable context schema.
+3. Create stable evidence schema.
+4. Separate detection from policy.
+5. Add explanations.
+6. Add policy simulation.
+7. Improve onboarding.
+8. Add CI protection.
+9. Add signed policies.
+10. Prototype MCP security gateway.
 
-1. Ship a real v3 release with verified assets.
-2. Version context and evidence schemas.
-3. Separate detection from policy decisions.
-4. Add detection explanations and fixture benchmarks.
-5. Add policy simulation.
-6. Harden custom rule validation.
-7. Make CLI and MCP onboarding one minute.
-8. Add CI and pre commit scanning.
-9. Build signed policy bundles.
-10. Prototype the local MCP gateway.
+---
 
-## Definition of a successful Maskit v3.0
+# Definition of Maskit Success
 
-Maskit v3.0 is successful when:
+Maskit v3 succeeds when:
 
-- A new user can install it without cloning or compiling.
-- Browser, MCP, CLI, and Windows behavior agree on the same fixtures.
-- Findings include a clear explanation and confidence signal.
-- Policies can be simulated before enforcement.
-- Local audit evidence never contains raw secrets.
-- Release artifacts, documentation, and website links are verified automatically.
-- At least three technical teams use it in real AI workflows.
-- The product is honest about beta features and unsupported claims.
-- A team can adopt Maskit without sending raw prompts to a Maskit cloud service.
+- Users install without compiling.
+- Downloads work.
+- Browser, CLI, MCP, and Windows use the same security logic.
+- Findings explain themselves.
+- Policies can be tested before enforcement.
+- Local data remains private.
+- Release automation works.
+- Documentation matches reality.
+- Technical teams use it in production workflows.
+- Organizations can adopt AI securely without sending raw business context to Maskit cloud services.
+
+---
+
+# Final Strategic Direction
+
+Maskit should not attempt to solve every AI security problem.
+
+The strongest opportunity is becoming the security layer between human intent, AI systems, and autonomous agents.
+
+Start with deterministic protection:
+
+Secrets.
+
+Structured sensitive data.
+
+Developer workflows.
+
+Then expand carefully into:
+
+Context classification.
+
+Policy governance.
+
+MCP security.
+
+Agent permissions.
+
+The winning product is not an AI DLP replacement.
+
+It is the trusted control layer for AI-enabled work.
+```
