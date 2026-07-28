@@ -4,7 +4,7 @@
   "private": true,
   "description": "Protect sensitive information before it reaches AI tools.",
   "scripts": {
-    "test": "node test.js && node engine/test.js && node mcp-server/test.js && node parity-test.js",
+    "test": "node test.js && node defaults-sync-test.js && node engine/test.js && node mcp-server/test.js && node parity-test.js",
     "test:regex": "node scripts/validate-regex-safety.js",
     "build": "node scripts/build.js",
     "build:chrome": "node scripts/build.js chrome",
