@@ -2,9 +2,27 @@
 
 **Scope:** product/commercial readiness for first customer pilots  
 **Constraint:** no architecture redesign required as a prerequisite  
-**Date:** 2026-07-28  
-**Overall verdict:** **technically credible local-first tool; not yet enterprise-pilot-ready as a managed security product.**  
-Fit for **design-partner / technical pilot** with security-aware engineering teams; **not** ready for unmanaged MSP multi-client fleet rollout.
+**Updated:** 2026-07-28 (post pilot-package delivery)  
+**Product version:** 2.4.0  
+
+**Overall verdict:** **Ready for a narrow, assisted design-partner pilot** with security-aware engineering teams.  
+**Not ready** for unmanaged MSP multi-client fleet rollout or “enterprise platform” sales promises.
+
+---
+
+## Status since original review
+
+| Area | Original (gaps) | Current (after pilot package work) |
+|------|-----------------|-------------------------------------|
+| Claim accuracy | Salted hashes, warn/approval marketing, stale FAQ/Windows | **Fixed** in website + docs; `npm run test:docs` gate |
+| Claims matrix | Missing | **`docs/claims-evidence-matrix.md`** |
+| Pilot docs | Missing admin/user/whitepaper/data handling | **`docs/pilot/01`–`06` + scope** |
+| Evidence pack | Missing | **`docs/pilot/evidence/`** (rules, samples, verification, permissions) |
+| Download-first install | Onboarding was clone-centric | **Onboarding / install / FAQ / Windows customer docs** updated; contrib in `docs/development/` |
+| Windows package | Incomplete packaging story | Self-contained ZIP + clean-install verification |
+| Doc consistency automation | None | **`scripts/verify-doc-consistency.js`** → `npm run test:docs` |
+
+**Pilot entrypoint for customers:** [docs/pilot/README.md](pilot/README.md)
 
 ---
 
@@ -12,55 +30,58 @@ Fit for **design-partner / technical pilot** with security-aware engineering tea
 
 | Dimension | Score (1–5) | One-line assessment |
 |-----------|-------------|---------------------|
-| Security claims honesty | **4** | Trust center is mostly careful; a few claim mismatches remain |
-| Implementation depth | **3.5** | Shared rules + canonical audit are real; enterprise controls are device-local |
-| Deployment reliability | **2.5** | Unpacked browser + portable ZIP; no store/MSI/auto-update |
-| MSP readiness | **1.5** | No multi-client model, no fleet, no managed support path |
-| Documentation (pilot) | **2.5** | Strong eng docs; weak admin/user/whitepaper packaging |
-| Commercial packaging | **1.5** | No pricing, SLA, pilot kit, or demo environment |
+| Security claims honesty | **4.5** | Claims aligned for pilot; residual residual-risk communication required |
+| Implementation depth | **3.5** | Shared rules + canonical audit real; enterprise controls still device-local |
+| Deployment reliability | **3** | Documented download path; still no store/MSI/auto-update |
+| MSP readiness | **1.5** | No multi-client model, fleet, or managed platform |
+| Documentation (pilot) | **4** | Full design-partner package in `docs/pilot/` |
+| Commercial packaging | **2** | Pilot scope/metrics defined in docs; no public pricing/SLA/demo env |
 
-**Bottom line:** You can run a **narrow, assisted pilot** (browser ± CLI/MCP, optional Windows beta) if you fix claim/doc inconsistencies and define pilot boundaries. You should **not** sell full “enterprise / MSP fleet” outcomes until management and deployment packaging exist (roadmap already says that is Phase 3).
+**Bottom line:** Use **browser (required) ± CLI/MCP ± Windows beta** under [pilot-scope.md](pilot/pilot-scope.md). Do **not** sell full enterprise/MSP fleet outcomes until Phase 3-style management exists.
 
 ---
 
 ## 1. Security claims vs implementation
 
-### Supported claims (backed by code)
+### Supported claims (backed by code + matrix)
 
 | Claim | Evidence |
 |-------|----------|
-| Local processing (no Maskit cloud for prompts) | Extension content scripts, Node MCP/CLI, Windows agent process locally; privacy policy states no upload to Maskit service |
-| Scoped browser surface | Manifest host permissions limited to ChatGPT / Claude / Gemini / Copilot / Cursor patterns |
-| Detect → policy → protect → audit | Shared rules, `allow`/`redact`/`block`, sanitizer/redaction, audit events |
-| No raw secrets in audit events | Canonical events use `matchedValueHash` only; validators reject raw values |
-| Hash-chained audit (browser / Windows) | Background + Windows `AuditLogger` chain hashes |
-| Honest “not a guarantee” | Website security page + security model |
-| No false SOC 2 / ISO / GDPR certification claims | Explicit on `website/security.html` |
+| Local processing (no Maskit cloud for prompts) | Extension, Node MCP/CLI, Windows agent; [data handling](pilot/06-data-handling-statement.md) |
+| Scoped browser surface | Manifest hosts only; [permissions matrix](pilot/evidence/permissions-matrix.md) |
+| Detect → allow/redact/block → audit | Shared rules + policy; user-visible actions documented |
+| No raw secrets in audit | `matchedValueHash` only; sample events in evidence |
+| Hash-chained audit (browser / Windows) | Background + Windows `AuditLogger` |
+| Irreversible SHA-256 hashes (not raw values) | Canonical path; **unsalted** in v2.4.0 (worded accurately) |
+| Honest “not a guarantee” | Website security page + whitepaper |
+| No SOC 2 / ISO / GDPR certification claims | Explicit non-claims + `test:docs` |
 | MIT / inspectable source | LICENSE + GitHub |
 
-### Claims that need tightening or evidence
+Full table: [claims-evidence-matrix.md](claims-evidence-matrix.md).
 
-| Claim / surface | Issue | Severity |
-|-----------------|-------|----------|
-| **“Salted hashes”** (website security panel) | Canonical path uses **unsalted SHA-256** of the matched value (`engine/context.js`, Windows `HashValue`). Salt exists for other helpers (`hashSensitive`), not the canonical event hash | **High** (accuracy / trust) |
-| **“Allow, warn, redact, block, or approval”** (marketing flow) | Schema supports `warn` / `require_approval`; **product UX mainly exposes allow/redact/block**. Policy guide already admits staged rollout | **Medium** |
-| **“30+ secret formats”** | ~**40** rules total (~32 secrets + PII + financial). Roughly fair if worded carefully; needs a published rule inventory | **Low–Medium** |
-| **“Before it reaches … AI”** | Browser covers listed hosts only; **not** all AI surfaces. Windows is **clipboard-only**, beta | **Medium** |
-| **FAQ: Windows not a release binary** | FAQ still implies build-from-source / unsigned package narrative; product now has **self-contained `maskit-windows-agent.zip`** | **High** (docs lag) |
-| **FAQ/install: MCP `npm ci` inside package** | Release MCP packaging may not match “run npm ci in package” for every layout; clean-install paths need one canonical story | **Medium** |
-| **Extension not Web Store signed** | Enterprise browsers often block unpacked extensions without policy exceptions | **High** for enterprise deploy |
-| **MIT alone** | Fine for OSS pilots; enterprises often need commercial support terms / DPA language even if product is local-first | **Medium** (commercial, not tech) |
+### Remaining claim / trust residual (not P0 packaging gaps)
 
-### Evidence required for pilot trust reviews
+| Item | Status | Severity for pilot |
+|------|--------|-------------------|
+| Canonical hashes are **unsalted** SHA-256 | Documented accurately; not HMAC | Low if briefed; High if mis-sold as salted |
+| Warn / require_approval | Schema only; marketing says reserved | Low if docs followed |
+| “30+ secret formats” | 40 rules in [rule-catalog.md](pilot/evidence/rule-catalog.md) | Low |
+| Unpacked browser extension | Documented risk acceptance | **High** for locked-down orgs |
+| MIT only (no commercial DPA/MSA) | Process gap | Medium commercial |
 
-1. **Data-flow diagram** per surface (browser / MCP / CLI / Windows): what is read, what is stored, where, retention.
-2. **Threat model one-pager** signed off by eng: attacker, non-goals, residual risk (already partial on `security.html`).
-3. **Rule catalog** (id, type, severity, example, known FPs).
-4. **Sample audit events** (JSON) with proof of no raw values + optional chain verification script.
-5. **Hash specification** (algorithm, salt or no salt, domain separation). Fix marketing if unsalted remains.
-6. **Permissions matrix** (manifest hosts, storage, Windows capabilities).
-7. **Build provenance**: release checksums + GitHub Actions attestations (pipeline already has attestation hooks).
-8. **False-positive / false-negative notes** for payment cards, Kenyan phones, generic API patterns.
+### Evidence pack (delivered)
+
+| Evidence | Location |
+|----------|----------|
+| Claims ↔ evidence | [claims-evidence-matrix.md](claims-evidence-matrix.md) |
+| Rule catalog | [pilot/evidence/rule-catalog.md](pilot/evidence/rule-catalog.md) |
+| Sample audit events (synthetic) | [pilot/evidence/sample-audit-events.json](pilot/evidence/sample-audit-events.json) |
+| Verification summary | [pilot/evidence/verification-report.md](pilot/evidence/verification-report.md) |
+| Permissions matrix | [pilot/evidence/permissions-matrix.md](pilot/evidence/permissions-matrix.md) |
+| Security whitepaper | [pilot/05-security-whitepaper.md](pilot/05-security-whitepaper.md) |
+| Data handling | [pilot/06-data-handling-statement.md](pilot/06-data-handling-statement.md) |
+
+Still optional for stronger reviews: recorded demo video, signed pilot SOW, dedicated security@ mailbox SLA.
 
 ---
 
@@ -68,50 +89,49 @@ Fit for **design-partner / technical pilot** with security-aware engineering tea
 
 ### Installation workflow (today)
 
-| Surface | How installed | Enterprise-ready? |
-|---------|---------------|-------------------|
-| Browser | Download ZIP → **Load unpacked** / developer mode | **Weak** — no Chrome Web Store / Edge Add-ons force-install package |
-| Windows | Portable ZIP, self-contained exe | **Partial** — no MSI/MSIX, no Intune/GPO recipe |
-| MCP | Tar extract + Node + client JSON config | **Dev-friendly**, not IT-standard |
-| CLI | Tar extract + Node | Same |
+| Surface | How installed | Pilot-ready? | Enterprise-ready? |
+|---------|---------------|--------------|-------------------|
+| Browser | Download ZIP → Load unpacked | **Yes** (documented) | **Weak** — no Web Store / force-install package |
+| Windows | Portable self-contained ZIP | **Yes** (beta, documented) | **Partial** — no MSI/Intune |
+| MCP | Tar + Node + client config | **Yes** (optional) | Dev-style |
+| CLI | Tar + Node | **Yes** (optional) | Dev-style |
 
-**Gaps:** silent install, machine-wide policy, enrollment, health check, and non-admin user paths are undefined.
+Guides: [pilot/02-installation-guide.md](pilot/02-installation-guide.md), [installation.md](installation.md).
 
 ### Updates
 
-- Manual: replace package / re-load extension.
-- No auto-update channel, no staged rollout, no version pinning policy for tenants.
-- Settings export exists for browser; upgrade of local audit/config is ad hoc.
+- Manual replace from GitHub Releases; browser settings export supported.
+- No auto-update, staged rollout, or tenant version pin.
 
 ### Permissions
 
-| Surface | Permissions reality |
-|---------|---------------------|
-| Browser | Tight host list + `storage` + `contextMenus` — **good least privilege** for the product model |
-| Windows | Clipboard + tray — **powerful** on endpoint; needs clear admin consent language |
-| MCP/CLI | Full text access to whatever the user/tool feeds it — **by design**, must be in threat model |
+Documented in [permissions-matrix.md](pilot/evidence/permissions-matrix.md).
+
+| Surface | Reality |
+|---------|---------|
+| Browser | Tight host list + storage + contextMenus |
+| Windows | Clipboard + tray; AppData config/audit |
+| CLI/MCP | Only text the user/process supplies |
 
 ### Logging
 
-| What exists | Gap for enterprise |
-|-------------|--------------------|
-| Local audit (browser storage / MCP audit file / Windows `audit.jsonl`) | No SIEM forwarder, no central collector, no immutability beyond local chain hash |
-| Retention (browser options) | Not org-enforced; user can reset log |
-| Export CSV (browser options) | Not a compliance package (no signed export, no role separation) |
+| What exists | Gap for enterprise scale |
+|-------------|--------------------------|
+| Local audit + CSV export (browser) | No SIEM forwarder / central collector |
+| Retention configurable (browser) | Not org-enforced; user can reset |
+| Windows/MCP local files | Customer must manage exports |
 
-### Admin controls (device-local only)
+### Admin controls (device-local)
 
-**Present:** detection toggles, site allow/block list, per-context policies, redaction format, pause, killswitch (duration/schedule) in extension settings, config import/export.
+**Present:** detection toggles, site list, per-context allow/redact/block, redaction format, pause, local killswitch, config import/export — see [admin guide](pilot/03-admin-guide.md).
 
-**Missing for enterprise admin:**
+**Still missing for true enterprise admin:**
 
-- Org-wide policy push
-- Role-based access (admin vs end user)
-- Tamper-evident config (signed policy bundles — roadmap Phase 2/3)
-- Killswitch that is **centrally enforced** (today it is local settings)
-- Mandatory settings that users cannot disable
-
-Windows killswitch can be set in code/policy engine but is not a mature admin console control.
+- Org-wide policy push  
+- RBAC (admin vs end user)  
+- Signed/tamper-evident policy bundles  
+- Centrally enforced killswitch  
+- Mandatory settings users cannot disable  
 
 ---
 
@@ -119,42 +139,39 @@ Windows killswitch can be set in code/policy engine but is not a mature admin co
 
 | Need | Status |
 |------|--------|
-| Multi-client tenancy | **None** — single-device local product |
-| Per-client policy packs | Manual file copy / config import only |
+| Multi-client tenancy | **None** |
+| Per-client policy packs | Manual config import / file copy |
 | Agent inventory / last-seen | **None** |
-| Remote disable / killswitch | **None** (local only) |
-| Multi-tenant audit review | **None** — logs stay on endpoints |
+| Remote disable / killswitch | Local only |
+| Multi-tenant audit review | Logs stay on endpoints |
 | Billing / seats | **None** |
-| Support workflow | **mailto** contact form only (`support@designx.co.ke`) |
-| Troubleshooting runbooks for L1 | Partial eng troubleshooting; not MSP playbooks |
-| White-label / client branding | **None** |
+| Support workflow | mailto / pilot channel (process) |
+| L1 runbooks | Pilot install + admin/user guides; not full MSP playbook |
+| White-label | **None** |
 
-**MSP conclusion:** product is a **tool MSPs can recommend and install per client**, not an **MSP platform**. Selling “we manage Maskit for 50 clients” requires process and tooling that does not exist.
-
-### Support workflow gaps
-
-- No severity definitions / SLA
-- No ticket system integration
-- No known-issue register for pilots
-- Docs still mix **clone-from-source** onboarding with **release download** install
+**MSP conclusion unchanged:** MaskIt is a **tool MSPs can install per client**, not an MSP management platform. Do not sell fleet management.
 
 ---
 
 ## 4. Documentation
 
-| Artifact | Exists? | Pilot quality |
-|----------|---------|---------------|
-| Admin guide | **No** dedicated guide | Need: install, policy baseline, killswitch, retention, export, update, uninstall |
-| User guide | **No** end-user guide | Need: what Maskit does, pause, review dialog, when to expect blocks |
-| Security whitepaper | Partial (`security.html` + short `security-model.md`) | Need PDF-grade: architecture, claims table, residual risk |
-| Data handling statement | Partial privacy policy + privacy.md | Need formal DPA-friendly statement (even for local-only: what customer data touches the product) |
-| Installation | `installation.md` | OK skeleton; outdated relative to Windows package story |
-| Onboarding | `onboarding.md` | **Dev/source-centric** — bad first pilot path |
-| Policy guide | `policy-guide.md` | Good direction; honest about warn/approval |
-| Troubleshooting | `troubleshooting.md` | Eng-oriented; needs pilot L1 section |
-| FAQ | `faq.md` | **Stale** on Windows packaging / updates |
+| Artifact | Status | Location |
+|----------|--------|----------|
+| Pilot overview | **Done** | [pilot/01-pilot-overview.md](pilot/01-pilot-overview.md) |
+| Installation (download-first) | **Done** | [pilot/02-installation-guide.md](pilot/02-installation-guide.md) |
+| Admin guide | **Done** | [pilot/03-admin-guide.md](pilot/03-admin-guide.md) |
+| User guide | **Done** | [pilot/04-user-guide.md](pilot/04-user-guide.md) |
+| Security whitepaper | **Done** | [pilot/05-security-whitepaper.md](pilot/05-security-whitepaper.md) |
+| Data handling statement | **Done** | [pilot/06-data-handling-statement.md](pilot/06-data-handling-statement.md) |
+| Pilot scope | **Done** | [pilot/pilot-scope.md](pilot/pilot-scope.md) |
+| Claims matrix | **Done** | [claims-evidence-matrix.md](claims-evidence-matrix.md) |
+| Evidence package | **Done** | [pilot/evidence/](pilot/evidence/) |
+| Onboarding (download-first) | **Done** | [onboarding.md](onboarding.md) |
+| FAQ (Windows package, non-claims) | **Done** | [faq.md](faq.md) |
+| Contributor / clone / dotnet | **Moved** | [development/README.md](development/README.md) |
+| Doc claim gate | **Done** | `npm run test:docs` |
 
-**Docs contradiction risk for pilots:** website says “download release, no compile”; FAQ/onboarding/windows docs still push `dotnet build` / clone paths in places.
+**Residual doc debt (P1/P2):** screenshots in install guide, PDF export of whitepaper, known FP/FN appendix beyond rule catalog, formal MSP playbook.
 
 ---
 
@@ -162,166 +179,144 @@ Windows killswitch can be set in code/policy engine but is not a mature admin co
 
 | Area | Status |
 |------|--------|
-| Pricing | **None** published |
-| Packaging (SEAT / device / site) | **Undefined** |
-| Pilot terms (duration, success metrics, support hours) | **Undefined** |
-| Demo environment | **None** — prospects self-install or you screenshare |
-| Sales collateral | Website + contact form only |
-| Legal | MIT + short privacy page; no enterprise MSA/DPA template |
-| Success metrics for pilot | Not defined |
+| Pricing | **None** published (intentional until design partners complete) |
+| Packaging (seat/device) | **Undefined** commercially |
+| Pilot terms | **Documented as recommendation** in [pilot-scope.md](pilot/pilot-scope.md) (30 days, metrics) |
+| Demo environment | **None** hosted — use synthetic secrets + install guide / screenshare |
+| Sales collateral | Website + pilot docs package |
+| Legal | MIT + privacy page; **no** enterprise MSA/DPA template yet |
+| Success metrics | **Defined as suggestions** in pilot-scope (agree in SOW) |
 
-**Reasonable pilot packaging (recommendation, not implemented):**
+**Recommended pilot packaging (now documented):**
 
-- 30-day design partner
-- Surfaces: browser (required) + CLI/MCP optional + Windows optional beta
-- Success: X accidental secret blocks, audit export review, false-positive rate bound
-- Support: weekly check-in + Slack/email, no 24/7
+- 30-day design partner  
+- Browser required; CLI/MCP optional; Windows optional beta  
+- Success: install rate, synthetic secret checks, audit export review, FP tracking  
+- Support: weekly check-in; not 24/7 SOC  
 
 ---
 
 ## Blockers before first pilot
 
-Prioritized for **first paying or formal design-partner pilot** (not for casual GitHub users).
+### P0 — packaging (status after pilot work)
 
-### P0 — do not start formal pilot until fixed
+| # | Blocker | Status |
+|---|---------|--------|
+| 1 | Align security copy (salted hashes, warn/approval, scoped AI) | **Done** (website + docs + `test:docs`) |
+| 2 | Single download-first install path | **Done** (`docs/pilot/02`, onboarding, FAQ, windows-agent) |
+| 3 | Browser enterprise install story | **Documented** risk acceptance / policy exception — **not** store package |
+| 4 | Pilot scope document | **Done** (`docs/pilot/pilot-scope.md`) |
+| 5 | Evidence pack | **Done** (`docs/pilot/evidence/`) |
 
-| # | Blocker | Why |
-|---|---------|-----|
-| 1 | **Align security copy with implementation** (esp. “salted hashes”; warn/approval language) | Trust failure if security reviewer diffs marketing vs code |
-| 2 | **Single canonical install path for pilots** (release ZIP only; fix FAQ / onboarding / windows.md) | Support chaos and failed installs |
-| 3 | **Browser enterprise install story** (at least documented: force-install via policy *or* managed “developer mode exception” + risk acceptance) | Many orgs cannot load unpacked extensions |
-| 4 | **Pilot scope document** (in/out of scope: hosts, Windows beta, no fleet, residual risk) | Prevents over-selling |
-| 5 | **Evidence pack** (rule list, sample audits, checksums, data handling statement) | Security questionnaires will ask |
+**Remaining P0 for a *locked-down* enterprise:** written customer risk acceptance if unpacked extensions are forbidden (process, not missing docs).
 
-### P1 — should fix in first 2 weeks of pilot
+### P1 — first 2 weeks of pilot
+
+| # | Item | Status |
+|---|------|--------|
+| 6 | Admin + user guides | **Done** |
+| 7 | Baseline policy recommendations | **Done** (admin guide table; not a JSON export file) |
+| 8 | Update/uninstall runbook | **Done** (installation guide) |
+| 9 | Known FPs/FNs deep appendix | **Partial** (rule catalog; expand with field notes) |
+| 10 | Support mailbox process / SLA | **Open** (process) |
+| 11 | Windows beta labeling | **Done** in pilot docs / FAQ / windows-agent |
+
+### P2 — scale / MSP (unchanged)
 
 | # | Item |
 |---|------|
-| 6 | Admin quickstart + user one-pager |
-| 7 | Baseline policy pack (recommended defaults for external AI) |
-| 8 | Update/uninstall runbook |
-| 9 | Known FPs/FNs + how to disable a rule type |
-| 10 | Support mailbox process (even if lightweight) |
-| 11 | Windows agent labeled **beta** everywhere consistently; clipboard-only boundary |
-
-### P2 — not required for first pilot, required for scale/MSP
-
-| # | Item |
-|---|------|
-| 12 | Store-signed browser package or enterprise force-install package |
+| 12 | Store-signed or enterprise force-install browser package |
 | 13 | MSI/MSIX + Intune |
 | 14 | Auto-update |
-| 15 | Central policy / inventory (roadmap Phase 3) |
+| 15 | Central policy / inventory |
 | 16 | SIEM export |
 | 17 | Commercial license + pricing + DPA |
-| 18 | Demo tenant / recorded demo environment |
+| 18 | Hosted demo tenant / recorded demo |
 
 ---
 
-## Recommended fixes (no architecture change)
+## Recommended next actions (post package)
 
-### Claims & evidence (P0)
-
-1. Change website “salted hashes” → **“irreversible SHA-256 hashes of matched values (no raw secrets)”**, *or* add a real salt/pepper to the canonical hash and document it.
-2. Change decision marketing to **“allow / redact / block (warn & approval in schema, staged)”**.
-3. Publish a **Claims ↔ Evidence** table on Trust page (claim, component, test, link to schema).
-4. Fix FAQ Windows packaging to match **self-contained release ZIP** + unsigned portable reality.
-5. Keep “0 raw prompts to a Maskit cloud” — it is strong and defensible; pair with “customer’s AI vendor still receives whatever is not blocked.”
-
-### Deployment (P0–P1)
-
-6. **Pilot Install Guide** (PDF/MD): browser Chrome/Edge only first; 15 minutes; screenshots; success checklist.
-7. Document **Group Policy / browser policy constraints** honestly if unpacked is required.
-8. Provide **recommended baseline policy JSON** export for options import.
-9. Windows: “extract → run exe → confirm tray → `--self-test`” as primary path; move `dotnet build` to contributor docs.
-
-### MSP (P1 process, P2 product)
-
-10. MSP playbook v0: per-client install checklist, per-client config export storage, incident “how to collect audit CSV,” no multi-tenant claim.
-11. Do **not** sell agent management until inventory exists.
-
-### Documentation (P0–P1)
-
-12. Create four short pilot docs (can be thin):
-    - Admin guide
-    - User guide
-    - Security whitepaper (expand security.html)
-    - Data handling statement
-13. Rewrite onboarding for **download-first**, not `git clone`.
-
-### Commercial (P0 process)
-
-14. Define pilot offer: duration, surfaces, success criteria, support channel, exit criteria.
-15. Pricing **assumption** for internal use only until validated: e.g. design partner free / discounted; later seat-based for managed browser; Windows as add-on — **not publish until package solid**.
-16. Demo: fixed 10-minute script + recorded video using synthetic secrets (no live customer data).
+1. **Agree pilot SOW** using [pilot-scope.md](pilot/pilot-scope.md) metrics.  
+2. **Brief customer** on residual risk: unpacked extension, unsalted hashes, Windows clipboard beta, no fleet.  
+3. **Optional:** export a baseline policy JSON from a golden machine for multi-seat import.  
+4. **Optional:** record a 10-minute demo with synthetic secrets.  
+5. **Do not** open MSP multi-tenant selling until inventory/management exists.  
+6. Keep running `npm run test:docs` in CI if not already wired (script exists; add to CI job when convenient).
 
 ---
 
-## Evidence required (checklist for sales/security review)
+## Evidence / verification commands
 
-| Evidence | Status today | Owner action |
-|----------|--------------|--------------|
-| Local-only data flow diagram | Partial | Write + publish |
-| Canonical event schema | **Yes** | Link in whitepaper |
-| Rule catalog with versions | **In repo JSON** | Export human-readable |
-| Parity / E2E results | **Yes in CI/local** | Attach to pilot packet |
-| Release checksums / attestations | **Checksums yes; signing no** | Document how to verify |
-| Sample redacted audit export | Generate from fixture run | Include in pack |
-| Permissions & residual risk | Partial | Finalize |
-| Incident response / disclosure | “report via repo/support” only | Add security@ contact + SLA intent |
-| Customer success metrics | None | Define before pilot kickoff |
+```bash
+npm test
+npm run test:docs
+npm run test:canonical-events
+npm run test:cross-adapter-parity
+npm run build
+npm run test:release-artifacts
+npm run test:clean-install
+npm run test:e2e:chromium
+# Windows:
+npm run test:windows-package   # MASKIT_REQUIRE_WINDOWS_ARTIFACT=1 when required
+```
 
----
-
-## Priority order (recommended sequence)
-
-1. **Claim accuracy pass** (salted hash, approval/warn, FAQ/Windows docs)
-2. **Pilot scope + residual risk one-pager** (signed by product)
-3. **Download-first install guide + success checklist**
-4. **Evidence pack** (rules, sample audits, checksums, data handling)
-5. **Admin + user mini-guides**
-6. **Baseline policy export** for external AI
-7. **Support process** (mailbox, response time, known issues)
-8. **Browser distribution plan** (store *or* documented enterprise exception)
-9. **Windows beta packaging polish** (MSI later; for pilot portable is OK if labeled)
-10. **Commercial terms** (pilot agreement; pricing after 1–2 design partners)
-11. **MSP multi-client tooling** (only after single-tenant pilot success)
+See [verification-report.md](pilot/evidence/verification-report.md).
 
 ---
 
-## Pilot recommendation
+## Priority order (updated)
+
+| Priority | Item | State |
+|----------|------|--------|
+| 1 | Claim accuracy pass | **Done** |
+| 2 | Pilot scope + residual risk | **Done** (docs) |
+| 3 | Download-first install guide | **Done** |
+| 4 | Evidence pack | **Done** |
+| 5 | Admin + user guides | **Done** |
+| 6 | Baseline policy export file | Optional P1 |
+| 7 | Support process / SLA | Open process |
+| 8 | Browser distribution (store/enterprise) | P2 product |
+| 9 | Windows MSI / signing | P2 product |
+| 10 | Commercial terms / pricing | After 1–2 design partners |
+| 11 | MSP multi-client tooling | After single-tenant success |
+
+---
+
+## Pilot recommendation (unchanged intent, package ready)
 
 **Start first pilot as:**
 
-- **Audience:** security-conscious engineering org (10–50 AI power users), not regulated MSP multi-tenant
-- **Surfaces:** browser on listed AI hosts (primary); MCP/CLI for power users; Windows **optional beta**
-- **Promise:** reduce *accidental* secret/PII pastes into known AI web apps + local audit evidence
-- **Do not promise:** full DLP, all AI apps, fleet admin, compliance certification, zero false negatives
+- **Audience:** security-conscious engineering org (10–50 AI power users)  
+- **Surfaces:** browser on listed hosts (primary); MCP/CLI optional; Windows **optional beta**  
+- **Promise:** reduce *accidental* secret/PII pastes into **supported** AI web apps + local audit evidence  
+- **Do not promise:** full DLP, all AI apps, fleet admin, compliance certification, zero false negatives  
 
-**Gate to “enterprise general availability” (later):** store/enterprise browser distribution, signed Windows installer, auto-update, central policy or at least signed policy bundles, SIEM export, commercial support tier.
+**Materials to send:** [docs/pilot/README.md](pilot/README.md) + GitHub Release assets + `SHA256SUMS.txt`.
+
+**Gate to enterprise GA (later):** store/enterprise browser distribution, signed Windows installer, auto-update, central or signed policy, SIEM export, commercial support tier.
 
 ---
 
-## What is already strong for a first design partner
+## What is strong for a first design partner
 
-- Local-first story that matches code
-- Shared rule source and improving adapter parity
-- Canonical audit without raw secrets
-- Honest non-goals on security page
-- Multiple surfaces with one detection vocabulary
-- MIT + public repo for technical buyers who want to inspect
-
-Those are real advantages. The gap is **managed enterprise packaging and claim hygiene**, not absence of a product core.
+- Local-first story that matches code  
+- Shared rules + adapter parity  
+- Canonical audit without raw secrets  
+- Honest non-goals and claim gate (`test:docs`)  
+- Complete download-first pilot documentation package  
+- Multiple surfaces with one detection vocabulary  
+- MIT + public source for technical buyers  
 
 ---
 
 ## Related documents
 
-- [Security model](security-model.md)
-- [Privacy](privacy.md)
-- [Policy guide](policy-guide.md)
-- [Installation](installation.md)
-- [Onboarding](onboarding.md)
-- [Roadmap](roadmap.md)
-- [Session changes 2026-07-28](session-changes-2026-07-28.md)
-- Website: `website/security.html`, `website/index.html`
+| Doc | Role |
+|-----|------|
+| [pilot/README.md](pilot/README.md) | Pilot package index |
+| [claims-evidence-matrix.md](claims-evidence-matrix.md) | Claim accuracy |
+| [pilot/pilot-scope.md](pilot/pilot-scope.md) | Mutual scope |
+| [session-changes-2026-07-28.md](session-changes-2026-07-28.md) | Engineering change log |
+| [development/README.md](development/README.md) | Contributor builds only |
+| Website | `website/security.html`, `website/index.html` |
