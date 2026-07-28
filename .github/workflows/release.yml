@@ -2,8 +2,7 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
 
 permissions:
   contents: write
@@ -48,13 +47,12 @@ jobs:
           cp maskit-agent/README.md dist/windows-agent/
           cd dist/windows-agent
           zip -qr ../maskit-windows-agent.zip publish README.md
-      - name: Verify release assets
+      - name: Verify and checksum release assets
         shell: bash
         run: |
           set -euo pipefail
-          for asset in maskit-chrome.zip maskit-firefox.zip maskit-edge.zip maskit-opera.zip maskit-extension.zip maskit-cli.tar.gz maskit-mcp.tar.gz maskit-windows-agent.zip; do
-            test -s "dist/$asset"
-          done
+          for asset in maskit-chrome.zip maskit-firefox.zip maskit-edge.zip maskit-opera.zip maskit-extension.zip maskit-cli.tar.gz maskit-mcp.tar.gz maskit-windows-agent.zip; do test -s "dist/$asset"; done
+          (cd dist && sha256sum maskit-*.zip maskit-*.tar.gz > SHA256SUMS.txt)
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -68,3 +66,4 @@ jobs:
             dist/maskit-cli.tar.gz
             dist/maskit-mcp.tar.gz
             dist/maskit-windows-agent.zip
+            dist/SHA256SUMS.txt

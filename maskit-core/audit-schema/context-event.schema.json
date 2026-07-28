@@ -1,0 +1,25 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://github.com/designx-studio/MaskIt/blob/main/maskit-core/audit-schema/context-event.schema.json",
+  "title":"Maskit Unified Context Event",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schemaVersion","eventId","timestamp","source","application","dataType","confidence","risk","policy","action","explanation"],
+  "properties":{
+    "schemaVersion":{"type":"string","const":"1.0"},
+    "eventId":{"type":"string","minLength":8},
+    "timestamp":{"type":"string","format":"date-time"},
+    "source":{"type":"string","enum":["browser","windows","cli","mcp","ci","gateway"]},
+    "application":{"type":"string","minLength":1},
+    "user":{"type":["object","null"],"additionalProperties":false,"properties":{"id":{"type":"string"},"displayName":{"type":"string"},"hashedId":{"type":"string"}}},
+    "device":{"type":["object","null"],"additionalProperties":false,"properties":{"id":{"type":"string"},"platform":{"type":"string"},"hostnameHash":{"type":"string"}}},
+    "dataType":{"type":"string","minLength":1},
+    "confidence":{"type":"number","minimum":0,"maximum":1},
+    "risk":{"type":"string","enum":["low","medium","high","critical"]},
+    "policy":{"type":"object","additionalProperties":false,"required":["name","version","result"],"properties":{"name":{"type":"string"},"version":{"type":"string"},"result":{"type":"string","enum":["allow","warn","redact","block","require_approval"]}}},
+    "action":{"type":"string","enum":["allowed","warned","redacted","blocked","approval_required"]},
+    "explanation":{"type":"string","minLength":1},
+    "ruleId":{"type":"string"},
+    "matchedValueHash":{"type":"string"}
+  }
+}
