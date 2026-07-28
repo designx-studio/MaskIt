@@ -21,6 +21,8 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release
+      - name: Package Windows agent source and build metadata
+        run: tar -czf dist/maskit-windows-agent-source.tar.gz maskit-agent maskit-core docs/windows-agent.md
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -30,4 +32,5 @@ jobs:
             dist/maskit-edge.zip
             dist/maskit-opera.zip
             dist/maskit-mcp.tar.gz
+            dist/maskit-windows-agent-source.tar.gz
           generate_release_notes: true
