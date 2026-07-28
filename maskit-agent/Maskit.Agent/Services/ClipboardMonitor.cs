@@ -19,6 +19,8 @@ public sealed class ClipboardMonitor : IDisposable
     private Thread? _thread;
     private bool _running;
     private string? _lastText;
+    private DateTime _lastProcessed = DateTime.MinValue; // FIXED: M2 — track the last clipboard processing time
+    private static readonly TimeSpan MinInterval = TimeSpan.FromMilliseconds(200); // FIXED: M2 — cap clipboard processing frequency
     private GCHandle _callbackHandle;
     private WndProc? _callback;
     private readonly ManualResetEventSlim _ready = new(false);
@@ -73,6 +75,9 @@ public sealed class ClipboardMonitor : IDisposable
 
     private void TryProcessClipboard()
     {
+        var now = DateTime.UtcNow;
+        if (now - _lastProcessed < MinInterval) return;
+        _lastProcessed = now;
         for (var attempt = 0; attempt < 3; attempt++)
         {
             if (OpenClipboard(IntPtr.Zero)) { try { ProcessOpenClipboard(); return; } finally { CloseClipboard(); } }
@@ -126,7 +131,7 @@ public sealed class ClipboardMonitor : IDisposable
 
     [StructLayout(LayoutKind.Sequential)] private struct WndClass { public uint cbSize, style; public IntPtr lpfnWndProc; public int cbClsExtra, cbWndExtra; public IntPtr hInstance, hIcon, hCursor, background; [MarshalAs(UnmanagedType.LPWStr)] public string? menuName; [MarshalAs(UnmanagedType.LPWStr)] public string? className; public IntPtr iconSm; }
     [StructLayout(LayoutKind.Sequential)] private struct Msg { public IntPtr hWnd; public uint message; public IntPtr wParam, lParam; public uint time; public Point point; }
-    [StructLayout(LayoutKind.Sequential)] private struct Point { public int x, y; }
+    [StructLayout(LayoutKind.Sequential)] private struct Point { public int x; public int y; }
     private delegate IntPtr WndProc(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)] private static extern ushort RegisterClassEx(ref WndClass cls);
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)] private static extern IntPtr CreateWindowEx(uint ex, string? cls, string? name, uint style, int x, int y, int w, int h, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
