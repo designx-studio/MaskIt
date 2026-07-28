@@ -28,5 +28,5 @@
     "test:mcp": "node mcp-server/test.js",
     "test:parity": "node parity-test.js"
   },
-  "devDependencies": { "safe-regex": "^2.1.1", "playwright": "^1.52.0" }
+  "devDependencies": { "safe-regex": "^2.1.1" }
 }

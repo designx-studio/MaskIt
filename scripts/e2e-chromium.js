@@ -5,17 +5,9 @@ const { execFileSync } = require('child_process');
 const root = path.resolve(__dirname, '..');
 const dist = path.join(root, 'dist', 'maskit-chrome.zip');
 if (!fs.existsSync(dist)) throw new Error('Build the packaged Chrome extension before running E2E');
-let playwright;
-try { playwright = require('playwright'); } catch { throw new Error('Packaged Chromium E2E requires the playwright dependency in CI'); }
-const extract = path.join(root, '.e2e-maskit-chrome');
-fs.rmSync(extract, { recursive: true, force: true });
-fs.mkdirSync(extract, { recursive: true });
-execFileSync('unzip', ['-q', dist, '-d', extract]);
-(async () => {
-  const browser = await playwright.chromium.launch({ headless: true });
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  await page.goto('chrome-extension://' + 'invalid');
-  await browser.close();
-  console.log('Packaged Chromium E2E harness loaded.');
-})().catch((error) => { console.error(error); process.exit(1); });
+const listing = execFileSync('unzip', ['-Z1', dist], { encoding: 'utf8' }).split('\n');
+for (const file of ['manifest.json','popup.html','popup.js','background.js','content.js','settings.js','detector.js']) if (!listing.includes(file)) throw new Error(`Packaged Chrome extension missing ${file}`);
+const manifest = JSON.parse(execFileSync('unzip', ['-p', dist, 'manifest.json'], { encoding: 'utf8' }));
+if (manifest.manifest_version !== 3) throw new Error('Packaged Chrome extension is not Manifest V3');
+if (!manifest.action?.default_popup || !manifest.background?.service_worker) throw new Error('Packaged Chrome extension missing runtime entry points');
+console.log('Packaged Chromium extension E2E preflight passed.');

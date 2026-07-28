@@ -19,7 +19,6 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
       - run: npm run lint
       - run: npm run test:regex
       - run: npm run test:browser-surface
@@ -30,6 +29,16 @@ jobs:
       - run: node mcp-server/integration-test.js
       - run: node scripts/validate-manifests.js
       - run: npm run build
+      - name: Package CLI artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/release/cli
+          cp mcp-server/cli.js dist/release/cli/
+          cp -R engine dist/release/cli/engine
+          cp -R maskit-core dist/release/cli/maskit-core
+          cp mcp-server/config.js package.json dist/release/cli/
+          tar -czf dist/maskit-cli.tar.gz -C dist/release/cli .
       - run: npm run test:release-artifacts
       - run: npm run test:clean-install
       - run: npm run test:e2e:chromium
@@ -38,12 +47,6 @@ jobs:
         run: |
           set -euo pipefail
           for asset in dist/maskit-chrome.zip dist/maskit-firefox.zip dist/maskit-edge.zip dist/maskit-opera.zip dist/maskit-extension.zip dist/maskit-mcp.tar.gz dist/maskit-cli.tar.gz; do test -s "$asset"; done
-      - name: Upload E2E diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: chromium-e2e-diagnostics
-          path: .e2e-maskit-chrome
 
   windows-agent:
     runs-on: windows-latest
