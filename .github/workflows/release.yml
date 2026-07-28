@@ -6,6 +6,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build-and-release:
@@ -22,6 +24,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run test:regex
+      - run: npm run test:browser-surface
       - run: npm run build
       - run: cd mcp-server && npm ci --ignore-scripts
       - run: dotnet restore maskit-agent/Maskit.Agent/Maskit.Agent.csproj
@@ -53,6 +56,10 @@ jobs:
           set -euo pipefail
           for asset in maskit-chrome.zip maskit-firefox.zip maskit-edge.zip maskit-opera.zip maskit-extension.zip maskit-cli.tar.gz maskit-mcp.tar.gz maskit-windows-agent.zip; do test -s "dist/$asset"; done
           (cd dist && sha256sum maskit-*.zip maskit-*.tar.gz > SHA256SUMS.txt)
+      - name: Attest release assets
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/maskit-*.zip,dist/maskit-*.tar.gz,dist/SHA256SUMS.txt'
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
