@@ -8,6 +8,7 @@
     "test:regex": "node scripts/validate-regex-safety.js",
     "test:browser-surface": "node scripts/validate-browser-surface.js",
     "test:stabilization": "node scripts/validate-stabilization.js",
+    "test:release-artifacts": "node scripts/verify-release-artifacts.js",
     "audit:website": "node scripts/audit-website.js",
     "release:monitor": "node scripts/release-monitor.js",
     "build": "node scripts/build.js",
