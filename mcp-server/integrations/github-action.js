@@ -7,7 +7,7 @@
  *     run: node mcp-server/integrations/github-action.js
  */
 
-const { execSync } = require("child_process");
+const { execSync, execFileSync } = require("child_process"); // FIXED: H2 — use execFileSync for untrusted diff content
 const path = require("path");
 
 const CLI = path.join(__dirname, "..", "cli.js");
@@ -29,10 +29,11 @@ function main() {
 
     console.log("Scanning staged changes for sensitive data...\n");
 
-    const result = execSync(
-        `node "${CLI}" --json scan "${diff.replace(/"/g, '\\"').slice(0, 10000)}"`,
+    const result = execFileSync(
+        "node",
+        [CLI, "--json", "scan", diff.slice(0, 10000)],
         { encoding: "utf8" }
-    );
+    ); // FIXED: H2 — pass diff as an argument without shell interpolation
 
     const parsed = JSON.parse(result);
 
