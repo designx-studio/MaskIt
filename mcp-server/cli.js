@@ -31,24 +31,24 @@ function usage() {
 function requireInput() { if (!input) { console.error("Error: text argument required"); process.exit(1); } }
 switch (command) {
   case "scan": {
-    requireInput(); const result = engine.scanText(input, config.readConfig());
+    requireInput(); const result = engine.scanText(input, { ...config.readConfig(), _context: { source: "cli", app: "maskit-cli" } });
     if (json) print(result); else compact(result);
     process.exitCode = result.findings.length ? 1 : 0; break;
   }
   case "scan-file": {
     const filePath = positional[0]; if (!filePath) { console.error("Error: file path required"); process.exit(1); }
-    const result = engine.scanText(readFile(filePath), config.readConfig());
+    const result = engine.scanText(readFile(filePath), { ...config.readConfig(), _context: { source: "cli", app: "maskit-cli" } });
     if (json) print(result); else compact(result);
     if (args.includes("--exit-on-risk") && result.findings.length) process.exitCode = 1;
     break;
   }
   case "redact": {
-    requireInput(); const result = engine.scanText(input, config.readConfig());
+    requireInput(); const result = engine.scanText(input, { ...config.readConfig(), _context: { source: "cli", app: "maskit-cli" } });
     if (json) print({ redactedText: result.redactedText, findings: result.findings }); else console.log(result.redactedText);
     break;
   }
   case "risk": {
-    requireInput(); const result = engine.scanText(input, config.readConfig());
+    requireInput(); const result = engine.scanText(input, { ...config.readConfig(), _context: { source: "cli", app: "maskit-cli" } });
     if (json) print({ riskScore: result.riskScore, riskLevel: result.riskLevel }); else console.log(`Risk score: ${result.riskScore}\nRisk level: ${result.riskLevel}\nFindings: ${result.findings.length}`);
     break;
   }

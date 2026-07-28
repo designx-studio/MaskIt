@@ -1,1 +1,2075 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Maskit documentation</title><style>body{margin:0;background:#f8fafb;color:#18212b;font:16px/1.6 system-ui,sans-serif}main{max-width:920px;margin:auto;padding:72px 24px}a{color:#146b68}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.item{background:#fff;border:1px solid #dce5e8;border-radius:16px;padding:20px}.item a{font-weight:800}</style></head><body><main><p>MASKIT / DOCS</p><h1>Build confidence before you ship prompts.</h1><p>Installation, operation, architecture, security, and release guidance for the current production line.</p><div class="grid"><div class="item"><a href="installation.md">Installation</a><p>Install released browser, Windows, MCP, and CLI packages.</p></div><div class="item"><a href="browser-extension.md">Browser extension</a><p>Supported browsers, hosts, settings, updates, and uninstall.</p></div><div class="item"><a href="windows-agent.md">Windows agent</a><p>Portable agent setup and clipboard protection behavior.</p></div><div class="item"><a href="mcp-server.md">MCP server</a><p>Configure local MCP clients and server tools.</p></div><div class="item"><a href="cli.md">CLI</a><p>Scan text and files, redact, and assess risk.</p></div><div class="item"><a href="architecture.md">Architecture</a><p>Shared engine and component boundaries.</p></div><div class="item"><a href="privacy.md">Privacy</a><p>What runs locally and what is retained.</p></div><div class="item"><a href="security-model.md">Security model</a><p>Detection, policies, audit, and threat boundaries.</p></div><div class="item"><a href="faq.md">FAQ</a><p>Short answers to common setup questions.</p></div><div class="item"><a href="troubleshooting.md">Troubleshooting</a><p>Recovery steps for common issues.</p></div><div class="item"><a href="../RELEASE.md">Release process</a><p>Versioning, artifacts, workflow, and recovery.</p></div></div><p><a href="../website/index.html">Back to Maskit</a> · <a href="../website/download/index.html">Downloads</a></p></main></body></html>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Maskit — AI Security Platform</title>
+    <meta name="description"
+        content="Maskit is the security layer between humans, AI assistants, AI agents, and company data. Protect sensitive information before it reaches AI systems." />
+
+    <!-- ============================================ -->
+    <!-- FONTS: Dorsis (self-hosted), Martel & Karma (Google Fonts) -->
+    <!-- ============================================ -->
+    <!-- 
+    ⚠️ IMPORTANT: Dorsis is not available on Google Fonts. 
+    You need to download the webfont kit and host the files (e.g., dorsis-regular.woff2, dorsis-bold.woff2).
+    Update the src: url() paths below to point to your actual font files.
+  -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Martel:wght@400;600;700;800&family=Karma:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        /* ============================================ */
+        /*  FONT FACE: DORSIS (Self-Hosted)             */
+        /* ============================================ */
+        @font-face {
+            font-family: 'Dorsis';
+            src: url('fonts/dorsis-regular.woff2') format('woff2'),
+                url('fonts/dorsis-regular.woff') format('woff');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'Dorsis';
+            src: url('fonts/dorsis-medium.woff2') format('woff2'),
+                url('fonts/dorsis-medium.woff') format('woff');
+            font-weight: 500;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'Dorsis';
+            src: url('fonts/dorsis-bold.woff2') format('woff2'),
+                url('fonts/dorsis-bold.woff') format('woff');
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        /* ============================================ */
+        /*  DESIGN SYSTEM                               */
+        /* ============================================ */
+        :root {
+            --ink: #032025;
+            --ink-2: #0e0501;
+            --ink-3: #e74c09;
+            --paper: #F4F1E8;
+            --paper-dim: #9C988C;
+            --line: rgba(244, 241, 232, .10);
+            --line-2: rgba(244, 241, 232, .20);
+            --signal: #FF5A36;
+            --signal-dim: rgba(255, 90, 54, .12);
+            --gold: #C9A84C;
+            --gold-dim: rgba(201, 168, 76, .14);
+
+            /* ===== NEW FONT STACK ===== */
+            --font-sans: 'Dorsis', 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            --font-serif-heading: 'Martel', 'Georgia', 'Times New Roman', serif;
+            --font-serif-body: 'Karma', 'Georgia', 'Times New Roman', serif;
+            --font-mono: 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+
+            --radius: 4px;
+            --header-h: 64px;
+            --side-pad: 40px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--ink);
+            color: var(--paper);
+            font-family: var(--font-serif-body);
+            font-size: 15px;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        ::selection {
+            background: var(--signal);
+            color: var(--ink);
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        img,
+        svg {
+            display: block;
+            max-width: 100%;
+        }
+
+        button {
+            font-family: inherit;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: inherit;
+        }
+
+        input,
+        textarea {
+            font-family: inherit;
+        }
+
+        /* Full-width container */
+        .wrap {
+            width: 100%;
+            padding: 0 var(--side-pad);
+            margin: 0 auto;
+        }
+
+        /* Typography — Left-aligned */
+        h1,
+        h2,
+        h3,
+        h4,
+        p,
+        ul,
+        ol,
+        .section-head,
+        .hero-content,
+        .card,
+        .step,
+        .cap-row,
+        .ent,
+        .footer-grid {
+            text-align: left;
+        }
+
+        .section-head {
+            max-width: 640px;
+            margin-bottom: 48px;
+        }
+
+        .section-head p {
+            margin-top: 12px;
+            color: var(--paper-dim);
+        }
+
+        /* Headings: Martel */
+        h1,
+        h2,
+        h3,
+        h4,
+        .section-title,
+        .hero h1,
+        .step-num,
+        .detect-count,
+        .hero-fact b {
+            font-family: var(--font-serif-heading);
+            font-weight: 700;
+            letter-spacing: -.01em;
+        }
+
+        h1 {
+            font-size: clamp(38px, 5.4vw, 60px);
+            line-height: 1.08;
+        }
+
+        h2 {
+            font-size: clamp(28px, 4vw, 42px);
+            line-height: 1.1;
+            margin-bottom: 14px;
+        }
+
+        h3 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        /* Body & UI: Karma & Dorsis */
+        p,
+        li,
+        .lead,
+        .card-desc,
+        .step p,
+        .detect-card p,
+        .int-card p,
+        .agent li,
+        .ent p {
+            font-family: var(--font-serif-body);
+            color: var(--paper-dim);
+        }
+
+        .lead {
+            font-size: 16.5px;
+            max-width: 46ch;
+        }
+
+        /* UI Elements: Dorsis */
+        .btn,
+        .nav-links,
+        .mono-label,
+        .eyebrow,
+        .chip,
+        .tab,
+        .tag,
+        .pill,
+        .doc-bar,
+        .doc-foot,
+        .tray-row,
+        .int-badge,
+        .logo,
+        .hero-fact,
+        input,
+        button,
+        .mode-btn,
+        .pg-note,
+        .sites-strip,
+        .foot-links,
+        .foot-bottom,
+        .component-card .card-features li,
+        .detect-list li,
+        .cap-visual .line {
+            font-family: var(--font-sans);
+        }
+
+        .eyebrow {
+            font-size: 11px;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--gold);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+
+        .eyebrow::before {
+            content: "";
+            width: 22px;
+            height: 1px;
+            background: var(--gold);
+            flex-shrink: 0;
+        }
+
+        .mono-label {
+            font-size: 11px;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            color: var(--paper-dim);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            font-weight: 500;
+            padding: 10px 20px;
+            border: 1px solid var(--line-2);
+            border-radius: var(--radius);
+            transition: border-color .18s, background .18s, color .18s;
+            background: transparent;
+            color: var(--paper);
+        }
+
+        .btn-primary {
+            background: var(--paper);
+            color: var(--ink);
+            border-color: var(--paper);
+        }
+
+        .btn-primary:hover {
+            background: var(--signal);
+            border-color: var(--signal);
+            color: var(--ink);
+        }
+
+        .btn-secondary {
+            border-color: var(--line-2);
+            color: var(--paper-dim);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--paper);
+            color: var(--paper);
+        }
+
+        .btn-sm {
+            padding: 7px 14px;
+            font-size: 11px;
+        }
+
+        /* ─── HEADER ─── */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(12, 14, 18, .86);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--line);
+            height: var(--header-h);
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: var(--header-h);
+            padding: 0 var(--side-pad);
+            width: 100%;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 14.5px;
+            letter-spacing: .02em;
+            font-family: var(--font-sans);
+        }
+
+        .logo-mark {
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 28px;
+            font-size: 12px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .nav-links a {
+            color: var(--paper-dim);
+            position: relative;
+            padding: 4px 0;
+        }
+
+        .nav-links a:hover {
+            color: var(--paper);
+        }
+
+        .nav-links a::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 0;
+            height: 1px;
+            background: var(--signal);
+            transition: width .2s;
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .mobile-toggle {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            width: 22px;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .mobile-toggle span {
+            height: 1px;
+            background: var(--paper);
+            width: 100%;
+        }
+
+        .mobile-nav {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+            padding: 20px var(--side-pad) 24px;
+            border-top: 1px solid var(--line);
+            font-size: 13px;
+            font-family: var(--font-sans);
+        }
+
+        .mobile-nav a {
+            color: var(--paper-dim);
+        }
+
+        .mobile-nav a:hover {
+            color: var(--paper);
+        }
+
+        /* ─── HERO ─── */
+        .hero {
+            padding: 140px 0 80px;
+            position: relative;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.05fr .95fr;
+            gap: 60px;
+            align-items: start;
+        }
+
+        .hero-content {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .hero-content h1 em {
+            font-style: italic;
+            color: var(--signal);
+        }
+
+        .hero-ctas {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+
+        .hero-facts {
+            display: flex;
+            gap: 32px;
+            flex-wrap: wrap;
+            border-top: 1px solid var(--line);
+            padding-top: 22px;
+            margin-top: 6px;
+        }
+
+        .hero-fact {
+            font-size: 11.5px;
+            color: var(--paper-dim);
+            letter-spacing: .03em;
+        }
+
+        .hero-fact b {
+            display: block;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        /* Hero demo card */
+        .doc-card {
+            background: var(--ink-2);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .doc-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--line);
+            font-size: 11px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--paper-dim);
+        }
+
+        .doc-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .doc-dots span {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--line-2);
+        }
+
+        .doc-live {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--gold);
+        }
+
+        .doc-live i {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--gold);
+            display: inline-block;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .25
+            }
+        }
+
+        .doc-live i {
+            animation: pulse 1.6s ease-in-out infinite;
+        }
+
+        .doc-body {
+            padding: 22px 20px;
+            min-height: 140px;
+            font-size: 14px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: var(--font-serif-body);
+        }
+
+        .doc-body .mask {
+            position: relative;
+            background: var(--signal-dim);
+            color: var(--signal);
+            padding: 0 3px;
+            border-radius: 2px;
+        }
+
+        .doc-body.redact .mask {
+            color: transparent;
+            background: #050505;
+        }
+
+        .doc-body.redact .mask::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: #050505;
+            transform: scaleX(0);
+            transform-origin: left;
+        }
+
+        @keyframes sweep {
+            to {
+                transform: scaleX(1);
+            }
+        }
+
+        .doc-body.redact .mask::after {
+            animation: sweep .45s cubic-bezier(.65, 0, .35, 1) forwards;
+        }
+
+        .doc-foot {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-top: 1px solid var(--line);
+            font-size: 10.5px;
+            color: var(--paper-dim);
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+
+        .doc-foot b {
+            color: var(--gold);
+        }
+
+        /* ─── TRUST BAR ─── */
+        .trust {
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+            padding: 24px 0;
+            background: var(--ink-2);
+        }
+
+        .trust-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 20px 40px;
+        }
+
+        .trust-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: var(--paper-dim);
+            font-family: var(--font-sans);
+        }
+
+        .trust-item svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            color: var(--gold);
+        }
+
+        .trust-item b {
+            color: var(--paper);
+            font-weight: 500;
+        }
+
+        /* ─── SECTIONS ─── */
+        .section {
+            padding: 80px 0;
+        }
+
+        .section-alt {
+            background: var(--ink-2);
+        }
+
+        /* ─── TABS ─── */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 32px;
+            border-bottom: 1px solid var(--line);
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            font-size: 12px;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            padding: 10px 16px;
+            color: var(--paper-dim);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            cursor: pointer;
+        }
+
+        .tab.active {
+            color: var(--paper);
+            border-color: var(--signal);
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* ─── STEPS ─── */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: var(--line);
+            border: 1px solid var(--line);
+        }
+
+        .step {
+            background: var(--ink);
+            padding: 28px;
+        }
+
+        .step-num {
+            font-style: italic;
+            font-size: 26px;
+            color: var(--gold);
+            margin-bottom: 14px;
+        }
+
+        .step p {
+            font-size: 14px;
+        }
+
+        /* ─── DETECTION GRID ─── */
+        .detect-grid {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 1px;
+            background: var(--line);
+            border: 1px solid var(--line);
+        }
+
+        .detect-main {
+            background: var(--ink-2);
+            padding: 36px;
+            grid-row: span 2;
+        }
+
+        .detect-card {
+            background: var(--ink);
+            padding: 28px;
+        }
+
+        .detect-count {
+            font-size: 34px;
+            margin-bottom: 6px;
+        }
+
+        .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .pill {
+            font-size: 11.5px;
+            padding: 6px 11px;
+            border: 1px solid var(--line-2);
+            border-radius: 20px;
+            color: var(--paper-dim);
+            font-family: var(--font-sans);
+        }
+
+        .detect-list {
+            list-style: none;
+            margin-top: 14px;
+        }
+
+        .detect-list li {
+            font-size: 13px;
+            padding: 7px 0;
+            border-top: 1px solid var(--line);
+            color: var(--paper-dim);
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-sans);
+        }
+
+        .detect-list li b {
+            color: var(--paper);
+            font-weight: 500;
+        }
+
+        /* ─── CAPABILITIES ─── */
+        .cap-row {
+            display: grid;
+            grid-template-columns: .55fr 1fr;
+            gap: 48px;
+            padding: 36px 0;
+            border-top: 1px solid var(--line);
+            align-items: center;
+        }
+
+        .cap-row:last-child {
+            border-bottom: 1px solid var(--line);
+        }
+
+        .cap-row:nth-child(even) .cap-visual {
+            order: 2;
+        }
+
+        .cap-icon {
+            width: 34px;
+            height: 34px;
+            color: var(--signal);
+            margin-bottom: 16px;
+        }
+
+        .cap-visual {
+            background: var(--ink-2);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 20px;
+            font-size: 12px;
+            color: var(--paper-dim);
+            font-family: var(--font-sans);
+        }
+
+        .cap-visual .line {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .cap-visual .line:last-child {
+            border-bottom: none;
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 7px;
+        }
+
+        .dot-green {
+            background: #4ADE80;
+        }
+
+        .dot-amber {
+            background: var(--gold);
+        }
+
+        .dot-red {
+            background: var(--signal);
+        }
+
+        /* ─── PRODUCT COMPONENTS ─── */
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 24px;
+            margin-top: 32px;
+        }
+
+        .component-card {
+            background: var(--ink-2);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 28px 24px;
+            transition: border-color .2s;
+        }
+
+        .component-card:hover {
+            border-color: var(--line-2);
+        }
+
+        .component-card .card-icon {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .component-card h3 {
+            font-size: 18px;
+        }
+
+        .component-card .card-desc {
+            font-size: 14px;
+            margin: 8px 0 16px;
+        }
+
+        .component-card .card-features {
+            list-style: none;
+            margin-bottom: 20px;
+        }
+
+        .component-card .card-features li {
+            font-size: 13px;
+            color: var(--paper-dim);
+            padding: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .component-card .card-features li::before {
+            content: "→";
+            color: var(--gold);
+        }
+
+        /* ─── INTEGRATIONS ─── */
+        .int-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: var(--line);
+            border: 1px solid var(--line);
+            margin-top: 32px;
+        }
+
+        .int-card {
+            background: var(--ink);
+            padding: 26px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .int-badge {
+            align-self: flex-start;
+            font-size: 9.5px;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: 10px;
+            margin-bottom: 14px;
+        }
+
+        .badge-live {
+            background: var(--gold-dim);
+            color: var(--gold);
+        }
+
+        .badge-dev {
+            background: rgba(244, 241, 232, .08);
+            color: var(--paper-dim);
+        }
+
+        .badge-template {
+            background: var(--signal-dim);
+            color: var(--signal);
+        }
+
+        .int-card ul {
+            list-style: none;
+            margin-top: 12px;
+            font-size: 12px;
+            color: var(--paper-dim);
+        }
+
+        .int-card li {
+            padding: 4px 0;
+            font-family: var(--font-sans);
+        }
+
+        .int-card li::before {
+            content: "→ ";
+            color: var(--gold);
+        }
+
+        .sites-strip {
+            margin-top: 32px;
+            padding-top: 20px;
+            border-top: 1px solid var(--line);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* ─── WINDOWS AGENT ─── */
+        .agent {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 56px;
+            align-items: center;
+        }
+
+        .beta-tag {
+            display: inline-block;
+            font-size: 10.5px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--ink);
+            background: var(--gold);
+            padding: 4px 10px;
+            border-radius: 2px;
+            margin-bottom: 16px;
+            font-family: var(--font-sans);
+        }
+
+        .agent ul {
+            list-style: none;
+            margin-top: 18px;
+        }
+
+        .agent li {
+            font-size: 13.5px;
+            padding: 8px 0;
+            border-top: 1px solid var(--line);
+        }
+
+        .agent-panel {
+            background: var(--ink-2);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 24px;
+            font-size: 12.5px;
+        }
+
+        .tray-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--line);
+            color: var(--paper-dim);
+        }
+
+        .tray-row:last-child {
+            border-bottom: none;
+        }
+
+        /* ─── PLAYGROUND ─── */
+        .pg-shell {
+            background: var(--ink-2);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 28px;
+        }
+
+        .pg-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .pg-presets {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            font-size: 11px;
+            letter-spacing: .03em;
+            padding: 7px 12px;
+            border: 1px solid var(--line-2);
+            border-radius: var(--radius);
+            color: var(--paper-dim);
+            cursor: pointer;
+            transition: border-color .15s, color .15s;
+            background: transparent;
+        }
+
+        .chip:hover,
+        .chip.active {
+            color: var(--paper);
+            border-color: var(--signal);
+        }
+
+        .pg-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .pg-col label {
+            display: block;
+            font-size: 11px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--paper-dim);
+            margin-bottom: 10px;
+            font-family: var(--font-sans);
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            background: var(--ink);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            color: var(--paper);
+            font-family: var(--font-serif-body);
+            font-size: 13.5px;
+            padding: 14px;
+            resize: vertical;
+            line-height: 1.7;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--signal);
+        }
+
+        #pg-output {
+            min-height: 150px;
+            background: var(--ink);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 14px;
+            font-size: 13.5px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: var(--paper-dim);
+            line-height: 1.7;
+            font-family: var(--font-serif-body);
+        }
+
+        .pg-modes {
+            display: flex;
+            gap: 6px;
+            margin-top: 12px;
+        }
+
+        .mode-btn {
+            font-size: 10.5px;
+            padding: 6px 10px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            color: var(--paper-dim);
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .mode-btn.active {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        .pg-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 18px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .pg-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            font-size: 10.5px;
+            padding: 4px 9px;
+            border-radius: 2px;
+            background: var(--signal-dim);
+            color: var(--signal);
+            letter-spacing: .03em;
+        }
+
+        .pg-note {
+            font-size: 11px;
+            color: var(--paper-dim);
+            margin-top: 16px;
+            border-top: 1px solid var(--line);
+            padding-top: 14px;
+        }
+
+        /* ─── ENTERPRISE ─── */
+        .ent {
+            background: var(--ink-2);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 52px;
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .ent-form {
+            display: flex;
+            gap: 0;
+            border: 1px solid var(--line-2);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .ent-form input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 14px 16px;
+            color: var(--paper);
+            font-size: 13px;
+            font-family: var(--font-serif-body);
+        }
+
+        .ent-form input:focus {
+            outline: none;
+        }
+
+        .ent-form button {
+            background: var(--gold);
+            color: var(--ink);
+            padding: 14px 20px;
+            font-size: 12px;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            font-weight: 600;
+            white-space: nowrap;
+            border: none;
+            cursor: pointer;
+            font-family: var(--font-sans);
+        }
+
+        .ent-form button:hover {
+            background: var(--paper);
+        }
+
+        .ent-msg {
+            font-size: 12px;
+            color: var(--gold);
+            margin-top: 12px;
+            min-height: 16px;
+        }
+
+        /* ─── FOOTER ─── */
+        footer {
+            border-top: 1px solid var(--line);
+            padding: 56px 0 40px;
+        }
+
+        .foot-grid {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 32px;
+            margin-bottom: 36px;
+        }
+
+        .foot-links {
+            display: flex;
+            gap: 28px;
+            font-size: 12px;
+            color: var(--paper-dim);
+            flex-wrap: wrap;
+        }
+
+        .foot-links a:hover {
+            color: var(--paper);
+        }
+
+        .foot-bottom {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 11px;
+            color: var(--paper-dim);
+            border-top: 1px solid var(--line);
+            padding-top: 24px;
+        }
+
+        /* ─── REVEAL ─── */
+        .reveal {
+            opacity: 1;
+            transform: none;
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+            .reveal {
+                opacity: 0;
+                transform: translateY(22px);
+                transition: opacity .7s cubic-bezier(.16, 1, .3, 1), transform .7s cubic-bezier(.16, 1, .3, 1);
+            }
+
+            .reveal.visible {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width: 1024px) {
+            :root {
+                --side-pad: 28px;
+            }
+
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .detect-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .detect-main {
+                grid-row: auto;
+            }
+
+            .int-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .cap-row {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .cap-row:nth-child(even) .cap-visual {
+                order: 0;
+            }
+
+            .agent {
+                grid-template-columns: 1fr;
+            }
+
+            .ent {
+                grid-template-columns: 1fr;
+                padding: 32px;
+            }
+
+            .steps {
+                grid-template-columns: 1fr;
+            }
+
+            .pg-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            :root {
+                --side-pad: 18px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-toggle {
+                display: flex;
+            }
+
+            .header-actions .btn-secondary {
+                display: none;
+            }
+
+            .int-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .component-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero {
+                padding: 120px 0 60px;
+            }
+
+            .section {
+                padding: 56px 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ─── HEADER ─── -->
+    <header class="header" role="banner">
+        <div class="header-inner">
+            <a class="logo" href="#top">
+                <svg class="logo-mark" viewBox="0 0 24 24" fill="none">
+                    <rect x="2" y="2" width="20" height="20" rx="2" stroke="#F4F1E8" stroke-width="1.3" />
+                    <rect x="6" y="14" width="7" height="3.4" fill="#FF5A36" />
+                    <path d="M6 10h12M6 6.5h9" stroke="#9C988C" stroke-width="1.1" />
+                </svg>
+                MASKIT
+            </a>
+            <nav class="nav-links" aria-label="Main">
+                <a href="#playground">Playground</a>
+                <a href="#detects">Detection</a>
+                <a href="#capabilities">Capabilities</a>
+                <a href="#integrations">Integrations</a>
+                <a href="#agent">Windows agent</a>
+            </nav>
+            <div class="header-actions">
+                <a class="btn btn-secondary btn-sm" href="https://github.com" target="_blank">GitHub</a>
+                <a class="btn btn-primary btn-sm" href="#integrations">Get Maskit</a>
+                <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu" aria-expanded="false">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
+        </div>
+        <div class="mobile-nav" id="mobileNav">
+            <a href="#playground">Playground</a>
+            <a href="#detects">Detection</a>
+            <a href="#capabilities">Capabilities</a>
+            <a href="#integrations">Integrations</a>
+            <a href="#agent">Windows agent</a>
+            <a href="https://github.com" target="_blank">GitHub</a>
+        </div>
+    </header>
+
+    <!-- ─── HERO ─── -->
+    <section class="hero" id="top">
+        <div class="wrap hero-grid">
+            <div class="hero-content">
+                <span class="eyebrow">Local-first · zero cloud requests</span>
+                <h1>Redact before<br />it leaves <em>the room</em>.</h1>
+                <p class="lead">Maskit watches what you type, paste, and copy into AI tools — and masks secrets, API
+                    keys, and personal data on-device, before any request goes out.</p>
+                <div class="hero-ctas">
+                    <a class="btn btn-primary" href="#integrations">Get the extension</a>
+                    <a class="btn btn-secondary" href="#playground">Try it live ↓</a>
+                </div>
+                <div class="hero-facts">
+                    <div class="hero-fact"><b>0</b>Cloud requests</div>
+                    <div class="hero-fact"><b>30+</b>Secret &amp; API key formats</div>
+                    <div class="hero-fact"><b>6</b>AI hosts covered</div>
+                    <div class="hero-fact"><b>3</b>Ways to run it</div>
+                </div>
+            </div>
+
+            <div class="doc-card reveal">
+                <div class="doc-bar">
+                    <div class="doc-dots"><span></span><span></span><span></span></div>
+                    <div class="doc-live"><i></i>Scanning locally</div>
+                </div>
+                <div class="doc-body" id="heroDoc"></div>
+                <div class="doc-foot"><span>Outbound request</span><span><b>0 bytes leaked</b></span></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── TRUST BAR ─── -->
+    <section class="trust" aria-label="Trust indicators">
+        <div class="wrap trust-grid">
+            <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <path d="M9 12l2 2 4-4" />
+                </svg> <b>Local-first</b> · no cloud scanning</div>
+            <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                </svg> <b>Zero telemetry</b> · nothing leaves</div>
+            <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <polyline points="16 18 22 12 16 6" />
+                    <polyline points="8 6 2 12 8 18" />
+                </svg> <b>Open source</b> · MIT license</div>
+            <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                </svg> <b>Developer friendly</b> · CLI &amp; CI</div>
+            <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <path d="M12 8v4" />
+                    <path d="M12 16h.01" />
+                </svg> <b>Enterprise ready</b> · policy &amp; audit</div>
+        </div>
+    </section>
+
+    <!-- ─── PLAYGROUND ─── -->
+    <section class="section" id="playground">
+        <div class="wrap">
+            <div class="section-head reveal">
+                <span class="eyebrow">Try it</span>
+                <h2>Paste something you'd normally think twice about.</h2>
+                <p>This runs the same core checks as the production engine, entirely in your browser — including a real
+                    Luhn check on card numbers.</p>
+            </div>
+
+            <div class="pg-shell reveal">
+                <div class="pg-top">
+                    <div class="pg-presets">
+                        <button class="chip active" data-preset="key">API key leak</button>
+                        <button class="chip" data-preset="pii">Customer PII</button>
+                        <button class="chip" data-preset="fin">Card &amp; bank</button>
+                        <button class="chip" data-preset="clean">Clear</button>
+                    </div>
+                </div>
+                <div class="pg-grid">
+                    <div class="pg-col">
+                        <label for="pgInput">Your text</label>
+                        <textarea id="pgInput" spellcheck="false"></textarea>
+                        <div class="pg-modes">
+                            <button class="mode-btn active" data-mode="tagged">Tagged</button>
+                            <button class="mode-btn" data-mode="stars">Stars</button>
+                            <button class="mode-btn" data-mode="hash">Hash</button>
+                        </div>
+                    </div>
+                    <div class="pg-col">
+                        <label for="pgOutput">Sanitized output</label>
+                        <div id="pgOutput">Nothing detected yet — start typing.</div>
+                    </div>
+                </div>
+                <div class="pg-bottom">
+                    <div class="pg-tags" id="pgTags"></div>
+                    <span class="mono-label" id="pgCount">0 findings</span>
+                </div>
+                <p class="pg-note">Simplified for the browser demo — the full engine also applies role-based policies,
+                    per-app overrides, and writes a hash-chained audit event for every match. See <a
+                        href="#capabilities" style="color:var(--gold)">Capabilities</a>.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── HOW IT WORKS ─── -->
+    <section class="section section-alt" id="how-it-works">
+        <div class="wrap">
+            <div class="section-head reveal">
+                <span class="eyebrow">How it runs</span>
+                <h2>Same rules, three different doors.</h2>
+                <p>Detection logic is shared; how it's invoked depends on where you're working.</p>
+            </div>
+            <div class="tabs reveal">
+                <button class="tab active" data-tab="ext">Browser extension</button>
+                <button class="tab" data-tab="mcp">MCP server</button>
+                <button class="tab" data-tab="win">Windows agent</button>
+            </div>
+            <div class="tab-panel active" data-panel="ext">
+                <div class="steps reveal">
+                    <div class="step">
+                        <div class="step-num">01</div>
+                        <h3>You type or paste</h3>
+                        <p>Into any of the 6 supported AI hosts — a content script watches the input field directly.</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">02</div>
+                        <h3>Local scan, same tick</h3>
+                        <p>Pattern + validator checks run in-browser before the keystroke or paste completes.</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">03</div>
+                        <h3>Swap or warn</h3>
+                        <p>Matches get redacted in place, or held for review if "review before redact" is on.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-panel" data-panel="mcp">
+                <div class="steps reveal">
+                    <div class="step">
+                        <div class="step-num">01</div>
+                        <h3>A client calls a tool</h3>
+                        <p>Claude Desktop, Cursor, or any MCP-compatible client invokes scanning and redaction
+                            functions.</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">02</div>
+                        <h3>Local Node process scans</h3>
+                        <p>The MCP server runs on your machine and applies your saved config — no external API call.</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">03</div>
+                        <h3>Structured result returned</h3>
+                        <p>Findings, risk score, and redacted text come back to the calling client; the event is logged
+                            locally.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-panel" data-panel="win">
+                <div class="steps reveal">
+                    <div class="step">
+                        <div class="step-num">01</div>
+                        <h3>Clipboard changes</h3>
+                        <p>The tray agent listens for Windows clipboard-update events system-wide.</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">02</div>
+                        <h3>Foreground app is checked</h3>
+                        <p>The active process is classified (AI tool, local model, other) to apply the right policy.</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-num">03</div>
+                        <h3>Clipboard is rewritten</h3>
+                        <p>Sensitive matches are replaced in place; a hash-chained local audit entry is written.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── DETECTION ─── -->
+    <section class="section" id="detects">
+        <div class="wrap">
+            <div class="section-head reveal">
+                <span class="eyebrow">Coverage</span>
+                <h2>What actually gets caught.</h2>
+                <p>Every category below maps to a real rule in the detection engine — nothing on this list is
+                    aspirational.</p>
+            </div>
+            <div class="detect-grid reveal">
+                <div class="detect-main">
+                    <span class="mono-label">Secrets &amp; API keys</span>
+                    <div class="detect-count">30+ patterns</div>
+                    <p>Named formats for OpenAI, Anthropic, AWS, Google Cloud, Azure, GitHub, GitLab, Slack, Stripe,
+                        Twilio, SendGrid, Cloudflare, Auth0, Firebase, Docker Hub, Terraform Cloud, npm, Square,
+                        Datadog, Kubernetes, Atlassian, DigitalOcean, and generic <code>api_key=</code> / Bearer token
+                        assignments.</p>
+                    <div class="pill-row">
+                        <span class="pill">OpenAI</span><span class="pill">Anthropic</span><span
+                            class="pill">AWS</span><span class="pill">GCP</span><span class="pill">Azure</span><span
+                            class="pill">GitHub</span><span class="pill">Stripe</span><span
+                            class="pill">Slack</span><span class="pill">+ 20 more</span>
+                    </div>
+                </div>
+                <div class="detect-card">
+                    <span class="mono-label">Personal data</span>
+                    <ul class="detect-list">
+                        <li><b>Email</b><span>RFC-shaped</span></li>
+                        <li><b>Phone</b><span>KE format</span></li>
+                        <li><b>SSN</b><span>US format</span></li>
+                        <li><b>Passport</b><span>alnum + length</span></li>
+                        <li><b>IP address</b><span>IPv4, private-range aware</span></li>
+                    </ul>
+                </div>
+                <div class="detect-card">
+                    <span class="mono-label">Financial</span>
+                    <ul class="detect-list">
+                        <li><b>Card numbers</b><span>Luhn-validated</span></li>
+                        <li><b>Bank / IBAN</b><span>15+ char check</span></li>
+                        <li><b>M-Pesa refs</b><span>alnum shape check</span></li>
+                    </ul>
+                </div>
+            </div>
+            <p style="margin-top:24px;font-size:12.5px;color:var(--paper-dim)">Plus up to 15 custom regex rules per
+                install, rejected at add-time if they're unsafe (unbounded quantifiers, nested repetition, risky
+                alternation).</p>
+        </div>
+    </section>
+
+    <!-- ─── CAPABILITIES ─── -->
+    <section class="section section-alt" id="capabilities">
+        <div class="wrap">
+            <div class="section-head reveal">
+                <span class="eyebrow">Beyond detection</span>
+                <h2>Detection is the easy part. This is the rest.</h2>
+            </div>
+
+            <div class="cap-row reveal">
+                <div>
+                    <svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3">
+                        <path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z" />
+                    </svg>
+                    <h3>Role-based policies</h3>
+                    <p>Set allow, redact, or block per data type — and override it per app or per site. A card number
+                        can be blocked on chatgpt.com and allowed inside your own local model.</p>
+                </div>
+                <div class="cap-visual">
+                    <div class="line"><span>EMAIL</span><span>redact</span></div>
+                    <div class="line"><span>API_KEY</span><span>redact</span></div>
+                    <div class="line"><span>CARD</span><span>block</span></div>
+                    <div class="line"><span>SSN</span><span>block</span></div>
+                </div>
+            </div>
+
+            <div class="cap-row reveal">
+                <div>
+                    <svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3">
+                        <path d="M4 4h16v16H4z" />
+                        <path d="M8 9h8M8 13h5" />
+                    </svg>
+                    <h3>Hash-chained audit log</h3>
+                    <p>Every redact, block, and allow decision is logged locally with a chained hash — each entry
+                        references the previous one, so a tampered log is detectable. Export to CSV, set your own
+                        retention window.</p>
+                </div>
+                <div class="cap-visual">
+                    <div class="line"><span>14:02:11</span><span>EMAIL · redacted</span></div>
+                    <div class="line"><span>14:02:44</span><span>CARD · blocked</span></div>
+                    <div class="line"><span>14:03:09</span><span>API_KEY · redacted</span></div>
+                </div>
+            </div>
+
+            <div class="cap-row reveal">
+                <div>
+                    <svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 3" />
+                    </svg>
+                    <h3>Admin killswitch</h3>
+                    <p>Restrict AI tools entirely, on a schedule or for a fixed duration — useful for orgs enforcing "no
+                        AI tools during code review" windows without policing it manually.</p>
+                </div>
+                <div class="cap-visual">
+                    <div class="line"><span>Mon–Fri</span><span>09:00–17:00 restricted</span></div>
+                    <div class="line"><span>Weekends</span><span>unrestricted</span></div>
+                </div>
+            </div>
+
+            <div class="cap-row reveal">
+                <div>
+                    <svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3">
+                        <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <h3>Audit, on the record</h3>
+                    <p>Every detection writes a canonical audit event with policy result, confidence, and an irreversible
+                        value hash — never the raw secret. v1 flow: Detect → Warn/Block/Mask → Audit.</p>
+                </div>
+                <div class="cap-visual">
+                    <div class="line"><span>3 items masked</span><span style="color:var(--gold)">Audited</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── PRODUCT COMPONENTS ─── -->
+    <section class="section" id="components">
+        <div class="wrap">
+            <div class="section-head reveal">
+                <span class="eyebrow">Products</span>
+                <h2>Protection everywhere AI lives</h2>
+                <p>Deploy Maskit across your entire AI ecosystem — browser, MCP, Windows, and CLI.</p>
+            </div>
+            <div class="component-grid reveal">
+                <div class="component-card">
+                    <div class="card-icon">🌐</div>
+                    <h3>Browser Extension</h3>
+                    <p class="card-desc">Protect AI conversations directly inside ChatGPT, Claude, Gemini, Copilot, and
+                        Cursor.</p>
+                    <ul class="card-features">
+                        <li>Real-time prompt scanning</li>
+                        <li>File upload inspection</li>
+                        <li>One-click redaction</li>
+                    </ul>
+                    <a href="#integrations" class="btn btn-primary btn-sm">Download</a>
+                </div>
+                <div class="component-card">
+                    <div class="card-icon">🔌</div>
+                    <h3>MCP Server</h3>
+                    <p class="card-desc">Protect AI agents and MCP workflows with tool control and context filtering.
+                    </p>
+                    <ul class="card-features">
+                        <li>Tool permission control</li>
+                        <li>Context filtering</li>
+                        <li>Policy enforcement</li>
+                    </ul>
+                    <a href="#integrations" class="btn btn-primary btn-sm">Download</a>
+                </div>
+                <div class="component-card">
+                    <div class="card-icon">🪟</div>
+                    <h3>Windows Agent</h3>
+                    <p class="card-desc">Protection beyond browsers — clipboard monitoring, local policies, and desktop
+                        AI protection.</p>
+                    <ul class="card-features">
+                        <li>Clipboard monitoring</li>
+                        <li>Local policy engine</li>
+                        <li>Desktop AI coverage</li>
+                    </ul>
+                    <a href="#agent" class="btn btn-primary btn-sm">Learn more</a>
+                </div>
+                <div class="component-card">
+                    <div class="card-icon">⌨️</div>
+                    <h3>CLI Tools</h3>
+                    <p class="card-desc">Developer workflows with scanning, automation, and CI integration.</p>
+                    <ul class="card-features">
+                        <li>Secret scanning</li>
+                        <li>CI/CD integration</li>
+                        <li>Automation ready</li>
+                    </ul>
+                    <a href="https://github.com" target="_blank" class="btn btn-primary btn-sm">GitHub</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── INTEGRATIONS ─── -->
+    <section class="section section-alt" id="integrations">
+        <div class="wrap">
+            <div class="section-head reveal">
+                <span class="eyebrow">Get it running</span>
+                <h2>Pick your surface.</h2>
+                <p>Everything shares the same detection core — this is just where it plugs in.</p>
+            </div>
+            <div class="int-grid reveal">
+                <div class="int-card">
+                    <span class="int-badge badge-live">Browser extension</span>
+                    <h3>Chrome · Edge · Opera · Firefox</h3>
+                    <p style="font-size:13px">Runs on 6 AI-host patterns, watching paste, copy, and typing directly in
+                        the page.</p>
+                    <ul>
+                        <li>chatgpt.com · chat.openai.com</li>
+                        <li>claude.ai</li>
+                        <li>gemini.google.com</li>
+                        <li>copilot.microsoft.com</li>
+                        <li>*.cursor.com</li>
+                    </ul>
+                </div>
+                <div class="int-card">
+                    <span class="int-badge badge-live">MCP server</span>
+                    <h3>Claude Desktop · Cursor · any MCP client</h3>
+                    <p style="font-size:13px">Node process exposing 7 tools over the Model Context Protocol.</p>
+                    <ul>
+                        <li>scan_text</li>
+                        <li>redact_text</li>
+                        <li>evaluate_policy</li>
+                        <li>scan_response</li>
+                        <li>get_status / get_rules / get_audit_log</li>
+                    </ul>
+                </div>
+                <div class="int-card">
+                    <span class="int-badge badge-dev">Developer tools</span>
+                    <h3>CLI · GitHub Action · Express middleware</h3>
+                    <p style="font-size:13px">For scripts, CI pipelines, and existing Node servers.</p>
+                    <ul>
+                        <li><code>maskit scan / redact / risk</code></li>
+                        <li>Blocks commits with staged secrets</li>
+                        <li>Drop-in request-body scanner</li>
+                    </ul>
+                </div>
+                <div class="int-card">
+                    <span class="int-badge badge-template">Integration template</span>
+                    <h3>Slack bot</h3>
+                    <p style="font-size:13px">Starter code for scanning messages before they post — bring your own bot
+                        framework and token.</p>
+                </div>
+                <div class="int-card">
+                    <span class="int-badge badge-template">Integration template</span>
+                    <h3>Discord bot</h3>
+                    <p style="font-size:13px">Same pattern for discord.js — not a hosted bot, a starting point.</p>
+                </div>
+                <div class="int-card">
+                    <span class="int-badge badge-live">CLI output</span>
+                    <h3>Local-only, always</h3>
+                    <p style="font-size:13px">Every surface above runs against your own machine or your own CI runner.
+                        Nothing is proxied through a Maskit-hosted server.</p>
+                </div>
+            </div>
+            <div class="sites-strip reveal">
+                <span class="mono-label">Exact match patterns:</span>
+                <span class="pill">chatgpt.com/*</span><span class="pill">chat.openai.com/*</span><span
+                    class="pill">claude.ai/*</span><span class="pill">gemini.google.com/*</span><span
+                    class="pill">copilot.microsoft.com/*</span><span class="pill">*.cursor.com/*</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── WINDOWS AGENT ─── -->
+    <section class="section" id="agent">
+        <div class="wrap agent">
+            <div class="reveal">
+                <span class="beta-tag">Beta</span>
+                <h2>A tray agent for the rest of Windows.</h2>
+                <p>Browser extensions only see the browser. The Windows agent watches the system clipboard, so a copy
+                    into a desktop AI client gets the same protection.</p>
+                <ul>
+                    <li>.NET 8, runs from the system tray — green / amber / red status at a glance</li>
+                    <li>Clipboard-only scope by design; it does not read keystrokes or screen content</li>
+                    <li>Shares the exact same rule set as the browser and MCP server via <code>maskit-core</code></li>
+                    <li>Verified against the same fixture suite in CI before every release</li>
+                </ul>
+            </div>
+            <div class="agent-panel reveal">
+                <div class="tray-row"><span class="status-dot dot-green"></span>Protecting clipboard — Claude Desktop
+                </div>
+                <div class="tray-row"><span class="status-dot dot-amber"></span>Redacted 2 items — Cursor</div>
+                <div class="tray-row"><span class="status-dot dot-red"></span>Paused by user</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── ENTERPRISE WAITLIST ─── -->
+    <section class="section section-alt" id="enterprise">
+        <div class="wrap">
+            <div class="ent reveal">
+                <div>
+                    <span class="eyebrow">In development</span>
+                    <h2 style="font-size:28px">Fleet policy, one dashboard.</h2>
+                    <p>Central rollout, per-team policy defaults, and audit visibility across every seat — the same
+                        engine, managed at org scale. Not shipped yet. If you're evaluating Maskit for a team, get on
+                        the list and we'll loop you in as pieces ship.</p>
+                </div>
+                <div>
+                    <form class="ent-form" id="entForm">
+                        <input type="email" placeholder="you@company.com" required id="entEmail">
+                        <button type="submit">Notify me</button>
+                    </form>
+                    <div class="ent-msg" id="entMsg"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── FOOTER ─── -->
+    <footer>
+        <div class="wrap">
+            <div class="foot-grid">
+                <div>
+                    <a class="logo" href="#top">
+                        <svg class="logo-mark" viewBox="0 0 24 24" fill="none">
+                            <rect x="2" y="2" width="20" height="20" rx="2" stroke="#F4F1E8" stroke-width="1.3" />
+                            <rect x="6" y="14" width="7" height="3.4" fill="#FF5A36" />
+                        </svg>
+                        MASKIT
+                    </a>
+                    <p style="margin-top:12px;font-size:12px;max-width:32ch">Open source. Local-first. No telemetry, no
+                        logged clipboard content, ever.</p>
+                </div>
+                <div class="foot-links">
+                    <a href="#">Privacy policy</a>
+                    <a href="https://github.com" target="_blank">GitHub</a>
+                    <a href="#" target="_blank">MIT license</a>
+                    <a href="#" target="_blank">Docs</a>
+                </div>
+            </div>
+            <div class="foot-bottom">
+                <span>© 2026 Maskit. Local processing only.</span>
+                <span>v2.4.0</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ─── JAVASCRIPT ─── -->
+    <script>
+        (function () {
+            'use strict';
+
+            // ── Mobile nav ──
+            const toggle = document.getElementById('mobileToggle');
+            const mobileNav = document.getElementById('mobileNav');
+            if (toggle && mobileNav) {
+                toggle.addEventListener('click', function () {
+                    const open = mobileNav.style.display === 'flex';
+                    mobileNav.style.display = open ? 'none' : 'flex';
+                    toggle.setAttribute('aria-expanded', String(!open));
+                });
+                mobileNav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { mobileNav.style.display = 'none'; }));
+            }
+
+            // ── Scroll reveal ──
+            const io = new IntersectionObserver((entries) => {
+                entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } });
+            }, { threshold: .12 });
+            document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+            // ── Tabs ──
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function () {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                    this.classList.add('active');
+                    const panel = document.querySelector(`.tab-panel[data-panel="${this.dataset.tab}"]`);
+                    if (panel) panel.classList.add('active');
+                });
+            });
+
+            // ── Hero typewriter + redaction ──
+            const heroMessages = [
+                { text: "Hey — can you refactor this? API key is sk-live-99f201a3994821034, ping dev@acme.com when it's up.", masks: ["sk-live-99f201a3994821034", "dev@acme.com"] },
+                { text: "Card on file for the KYC form: 4111 1111 1111 1111. SSN is 123-45-6789.", masks: ["4111 1111 1111 1111", "123-45-6789"] },
+                { text: "AWS key leaked in the log: AKIAIOSFODNN7EXAMPLE — rotate before you paste the trace anywhere.", masks: ["AKIAIOSFODNN7EXAMPLE"] }
+            ];
+            function escapeHtml(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+            function computeRanges(text, needles) {
+                const ranges = [];
+                needles.forEach(n => { const i = text.indexOf(n); if (i > -1) ranges.push([i, i + n.length]); });
+                return ranges.sort((a, b) => a[0] - b[0]);
+            }
+            function renderTyped(text, ranges, len) {
+                const slice = text.slice(0, len);
+                let html = '', i = 0;
+                ranges.forEach(([s, e]) => {
+                    if (s >= len) return;
+                    const segEnd = Math.min(e, len);
+                    if (s > i) html += escapeHtml(slice.slice(i, s));
+                    html += '<span class="mask">' + escapeHtml(slice.slice(s, segEnd)) + '</span>';
+                    i = segEnd;
+                });
+                if (i < len) html += escapeHtml(slice.slice(i));
+                return html;
+            }
+            const heroEl = document.getElementById('heroDoc');
+            const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            let msgIndex = 0;
+            function playHero() {
+                const msg = heroMessages[msgIndex % heroMessages.length];
+                const ranges = computeRanges(msg.text, msg.masks);
+                heroEl.classList.remove('redact', 'fade');
+                if (reduced) {
+                    heroEl.innerHTML = renderTyped(msg.text, ranges, msg.text.length);
+                    heroEl.classList.add('redact');
+                    return;
+                }
+                let len = 0;
+                const timer = setInterval(() => {
+                    len++;
+                    heroEl.innerHTML = renderTyped(msg.text, ranges, len);
+                    if (len >= msg.text.length) {
+                        clearInterval(timer);
+                        setTimeout(() => heroEl.classList.add('redact'), 450);
+                        setTimeout(() => {
+                            heroEl.classList.add('fade');
+                            setTimeout(() => { msgIndex++; playHero(); }, 600);
+                        }, 450 + 2200);
+                    }
+                }, 26);
+            }
+            playHero();
+
+            // ── Playground engine ──
+            const PATTERNS = {
+                API_KEY: /(?:sk-(?:proj-|ant-)?[a-zA-Z0-9_-]{15,}|AKIA[0-9A-Z]{16}|ghp_[0-9a-zA-Z]{20,}|AIzaSy[0-9A-Za-z-_]{25,}|xox[baprs]-[A-Za-z0-9-]{10,})/g,
+                EMAIL: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
+                CARD: /\b(?:\d[ -]*?){13,16}\b/g,
+                SSN: /\b\d{3}-\d{2}-\d{4}\b/g,
+                PHONE: /\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g
+            };
+            function luhnCheck(value) {
+                const digits = String(value).replace(/\D/g, "");
+                if (digits.length < 13 || digits.length > 19) return false;
+                let sum = 0, alt = false;
+                for (let i = digits.length - 1; i >= 0; i--) {
+                    let d = parseInt(digits[i], 10);
+                    if (alt) { d *= 2; if (d > 9) d -= 9; }
+                    sum += d; alt = !alt;
+                }
+                return sum % 10 === 0;
+            }
+            const PRESETS = {
+                key: "Refactor auth middleware. Secret key sk-live-99f201a3994821034 for user dev@acme.com in database.",
+                pii: "Customer report: contact Sarah at s.jenkins@enterprise-corp.io or call 555-234-5678. SSN 123-45-6789.",
+                fin: "Process billing retry for corporate card 4532 8912 3456 7890. Account holder John Doe.",
+                clean: ""
+            };
+            let pgMode = 'tagged';
+            const pgInput = document.getElementById('pgInput');
+            const pgOutput = document.getElementById('pgOutput');
+            const pgTags = document.getElementById('pgTags');
+            const pgCount = document.getElementById('pgCount');
+
+            function redactionFor(type) {
+                if (pgMode === 'stars') return '***';
+                if (pgMode === 'hash') return '[HASH_' + type.slice(0, 3).toLowerCase() + '_e3b0c4]';
+                return '[' + type + '_REDACTED]';
+            }
+            function runScan() {
+                const text = pgInput.value;
+                if (!text.trim()) {
+                    pgOutput.textContent = "Nothing detected yet — start typing.";
+                    pgTags.innerHTML = ""; pgCount.textContent = "0 findings";
+                    return;
+                }
+                let findings = [];
+                let sanitized = text;
+                Object.entries(PATTERNS).forEach(([type, re]) => {
+                    re.lastIndex = 0;
+                    const matches = text.match(re) || [];
+                    matches.forEach(m => {
+                        if (type === 'CARD' && !luhnCheck(m)) return;
+                        findings.push({ type, value: m });
+                    });
+                });
+                findings.forEach(f => { sanitized = sanitized.split(f.value).join(redactionFor(f.type)); });
+                pgOutput.textContent = sanitized;
+                pgCount.textContent = findings.length + (findings.length === 1 ? " finding" : " findings");
+                pgTags.innerHTML = findings.length
+                    ? [...new Set(findings.map(f => f.type))].map(t => `<span class="tag">${t}</span>`).join("")
+                    : "";
+            }
+            pgInput.addEventListener('input', runScan);
+            document.querySelectorAll('.chip').forEach(chip => {
+                chip.addEventListener('click', function () {
+                    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                    pgInput.value = PRESETS[this.dataset.preset] || "";
+                    runScan();
+                });
+            });
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    pgMode = this.dataset.mode;
+                    runScan();
+                });
+            });
+            pgInput.value = PRESETS.key;
+            runScan();
+
+            // ── Enterprise form ──
+            document.getElementById('entForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                const email = document.getElementById('entEmail').value;
+                document.getElementById('entMsg').textContent = email ? "Added — we'll reach out as features ship." : "";
+                this.reset();
+            });
+
+        })();
+    </script>
+</body>
+
+</html>

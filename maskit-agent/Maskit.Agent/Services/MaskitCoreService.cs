@@ -19,14 +19,20 @@ public sealed class MaskitCoreService
         var score = Math.Min(100, findings.Sum(f => SeverityWeight(f.Severity)));
         var redacted = text;
         foreach (var decision in decisions.Where(d => d.Action != "allow")) redacted = redacted.Replace(decision.Finding.Value, RedactionFor(decision.Finding.Type), StringComparison.Ordinal);
+        var normalizedSource = source.StartsWith("windows", StringComparison.OrdinalIgnoreCase) ? "windows" : source;
         var events = decisions.Select(d => new CoreAuditEvent
         {
-            DataType = d.Finding.Type,
+            SchemaVersion = "1.0",
+            EventId = $"evt_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}_{Guid.NewGuid().ToString("N")[..6]}",
+            Timestamp = DateTimeOffset.UtcNow.ToString("O"),
+            DataType = d.Finding.Type.StartsWith("API_KEY", StringComparison.Ordinal) ? "API_KEY" : d.Finding.Type,
             Risk = d.Finding.Severity,
-            Source = source,
+            Source = normalizedSource,
             Application = appContext.ProcessName,
+            User = null,
+            Device = null,
             Action = d.Action == "allow" ? "allowed" : d.Action == "block" ? "blocked" : "redacted",
-            Policy = new PolicyInfo { Name = appContext.ProcessName, Version = "1", Result = d.Action },
+            Policy = new PolicyInfo { Name = string.IsNullOrWhiteSpace(appContext.ProcessName) ? "default" : appContext.ProcessName, Version = "1", Result = d.Action },
             RuleId = d.Finding.Name,
             Confidence = d.Finding.Type.StartsWith("API_KEY", StringComparison.Ordinal) ? 0.95 : 0.85,
             Explanation = $"{d.Finding.Name} matched in {appContext.ProcessName}; policy result was {d.Action}.",

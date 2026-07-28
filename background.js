@@ -1,4 +1,4 @@
-importScripts("settings.js");
+importScripts("settings.js", "context-event.js");
 const BADGE_ON_COLOR = "#00b894";
 const BADGE_OFF_COLOR = "#5f6368";
 const BADGE_PAUSED_COLOR = "#f6b93b";
@@ -10,13 +10,62 @@ function saveStats(stats) { chrome.storage.local.set({ stats }); }
 function recordRedactions(counts, source) { if (!counts || !Object.keys(counts).length) return; getStats((stats) => { const added = Object.values(counts).reduce((sum, count) => sum + count, 0); stats.totalRedactions += added; stats.bySource = stats.bySource || { paste: 0, copy: 0, typing: 0 }; stats.byType = stats.byType || {}; stats.bySource[source] = (stats.bySource[source] || 0) + added; Object.entries(counts).forEach(([type, count]) => { stats.byType[type] = (stats.byType[type] || 0) + count; }); saveStats(stats); updateActionBadge(); }); }
 function getAuditLog(callback) { chrome.storage.local.get({ auditLog: { events: [], retentionDays: 30 } }, (data) => callback(data.auditLog || { events: [], retentionDays: 30 })); }
 function saveAuditLog(auditLog) { chrome.storage.local.set({ auditLog }); }
-async function computeChainHash(previousHash, eventId, timestamp) { const input = (previousHash || "0") + eventId + timestamp; const data = new TextEncoder().encode(input); const hashBuffer = await crypto.subtle.digest("SHA-256", data); return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join(""); }
-async function recordAuditEvent(event) { if (!event) return; getAuditLog(async (auditLog) => { const events = auditLog.events || []; const previousHash = events.length > 0 ? events[events.length - 1].chainHash : null; event.chainHash = await computeChainHash(previousHash, event.id, event.timestamp); auditLog.events.push(event); const cutoff = Date.now() - (auditLog.retentionDays || 30) * 24 * 60 * 60 * 1000; auditLog.events = auditLog.events.filter((e) => e.timestamp >= cutoff); saveAuditLog(auditLog); }); }
-async function recordAuditEvents(events) { if (!events || !events.length) return; getAuditLog(async (auditLog) => { const existing = auditLog.events || []; for (const event of events) { const previousHash = existing.length > 0 ? existing[existing.length - 1].chainHash : null; event.chainHash = await computeChainHash(previousHash, event.id, event.timestamp); existing.push(event); } const cutoff = Date.now() - (auditLog.retentionDays || 30) * 24 * 60 * 60 * 1000; auditLog.events = existing.filter((e) => e.timestamp >= cutoff); saveAuditLog(auditLog); }); }
-const unmaskStore = {};
-function recordUnmask(token, value, durationMs) { getAuditLog((auditLog) => { const evt = auditLog.events.find((e) => e.unmaskToken === token); if (evt) { evt.unmaskedAt = Date.now(); evt.unmaskedDuration = durationMs || 30000; saveAuditLog(auditLog); } }); }
-function getUnmaskedValue(token) { return unmaskStore[token] || null; }
-function setUnmaskedValue(token, value, durationMs) { unmaskStore[token] = value; setTimeout(() => { delete unmaskStore[token]; }, durationMs || 30000); }
+function eventTimestampMs(event) {
+  if (!event) return 0;
+  if (typeof event.timestamp === "number") return event.timestamp;
+  const parsed = Date.parse(event.timestamp);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+function eventIdOf(event) { return event.eventId || event.id || ("evt_" + Date.now()); }
+async function computeChainHash(previousHash, eventId, timestamp) {
+  const input = (previousHash || "0") + eventId + timestamp;
+  const data = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function normalizeStoredEvent(event) {
+  if (!event) return null;
+  if (event.schemaVersion === "1.0" && event.eventId && event.dataType) {
+    const cleaned = { ...event };
+    delete cleaned.value;
+    delete cleaned.matchedValue;
+    delete cleaned.unmaskToken;
+    delete cleaned.unmaskedAt;
+    delete cleaned.unmaskedDuration;
+    return cleaned;
+  }
+  // Migrate legacy event shapes into canonical schema
+  return createContextEvent({
+    eventId: event.eventId || event.id,
+    timestamp: typeof event.timestamp === "number" ? new Date(event.timestamp).toISOString() : event.timestamp,
+    source: event.source || "browser",
+    application: event.application || event.app || "unknown",
+    dataType: event.dataType || event.type || "unknown",
+    confidence: typeof event.confidence === "number" ? event.confidence : 0.85,
+    risk: event.risk || event.severity || "medium",
+    policy: event.policy || { name: event.policyApplied || "default", version: "1", result: event.action === "blocked" ? "block" : event.action === "allowed" ? "allow" : "redact" },
+    action: event.action === "blocked" ? "blocked" : event.action === "allowed" ? "allowed" : "redacted",
+    explanation: event.explanation || `${event.type || event.dataType || "Rule"} matched; policy applied.`,
+    ruleId: event.ruleId || event.matchedRule || event.type,
+    matchedValueHash: event.matchedValueHash || event.unmaskToken || undefined
+  });
+}
+async function recordAuditEvents(events) {
+  if (!events || !events.length) return;
+  getAuditLog(async (auditLog) => {
+    const existing = auditLog.events || [];
+    for (const raw of events) {
+      const event = normalizeStoredEvent(raw);
+      if (!event) continue;
+      const previousHash = existing.length > 0 ? existing[existing.length - 1].chainHash : null;
+      event.chainHash = await computeChainHash(previousHash, eventIdOf(event), event.timestamp);
+      existing.push(event);
+    }
+    const cutoff = Date.now() - (auditLog.retentionDays || 30) * 24 * 60 * 60 * 1000;
+    auditLog.events = existing.filter((e) => eventTimestampMs(e) >= cutoff);
+    saveAuditLog(auditLog);
+  });
+}
 function getPageStatus(settings, url) { if (!url || (!url.startsWith("http://") && !url.startsWith("https://"))) return { active: false, hostname: "" }; const hostname = new URL(url).hostname; return { active: settings.enabled !== false && isSiteAllowed(settings, hostname), hostname }; }
 function applyBadge(tabId, active, paused) { let text, color, title; if (paused && active) { text = "PSE"; color = BADGE_PAUSED_COLOR; title = "Maskit — paused (data passing through)"; } else if (active) { text = "ON"; color = BADGE_ON_COLOR; title = "Maskit — protecting this page"; } else { text = "OFF"; color = BADGE_OFF_COLOR; title = "Maskit — off on this page"; } if (typeof tabId === "number") { chrome.action.setBadgeText({ tabId, text }); chrome.action.setBadgeBackgroundColor({ tabId, color }); chrome.action.setTitle({ tabId, title }); return; } chrome.action.setBadgeText({ text }); chrome.action.setBadgeBackgroundColor({ color }); chrome.action.setTitle({ title }); }
 function updateActionBadge(tabId) { getPauseState((paused) => { chrome.storage.local.get(MASKIT_DEFAULTS, (settings) => { if (typeof tabId === "number") { chrome.tabs.get(tabId, (tab) => { if (chrome.runtime.lastError || !tab) return; const status = getPageStatus(settings, tab.url); applyBadge(tabId, status.active, paused); }); return; } chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => { const tab = tabs[0]; if (!tab) { applyBadge(undefined, settings.enabled !== false, paused); return; } const status = getPageStatus(settings, tab.url); applyBadge(tab.id, status.active, paused); }); }); }); }
@@ -51,10 +100,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "GET_AUDIT_LOG") { getAuditLog((auditLog) => sendResponse({ auditLog })); return true; }
   if (message.type === "RESET_AUDIT_LOG") { saveAuditLog({ events: [], retentionDays: 30 }); sendResponse({ ok: true }); return true; }
   if (message.type === "SET_AUDIT_RETENTION") { getAuditLog((auditLog) => { auditLog.retentionDays = message.retentionDays || 30; saveAuditLog(auditLog); sendResponse({ ok: true }); }); return true; }
-  if (message.type === "UNMASK_VALUE") { setUnmaskedValue(message.token, message.value, message.durationMs || 30000); recordUnmask(message.token, message.value, message.durationMs || 30000); sendResponse({ ok: true }); return true; }
-  if (message.type === "GET_UNMASKED_VALUE") { sendResponse({ value: getUnmaskedValue(message.token) }); return true; }
   if (message.type === "EXPORT_CONFIG") { chrome.storage.local.get(MASKIT_DEFAULTS, (settings) => sendResponse({ config: { version: "2.4.0", exportDate: new Date().toISOString(), settings } })); return true; }
-  if (message.type === "IMPORT_CONFIG") { if (!message.config || !message.config.settings) { sendResponse({ ok: false, error: "Invalid config format" }); return true; } const validation = validateConfigImport(message.config.settings); if (!validation.valid) { sendResponse({ ok: false, error: "Invalid config: " + validation.errors.join(", ") }); return true; } getAuditLog((auditLog) => { auditLog.events.push({ id: "evt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8), timestamp: Date.now(), type: "CONFIG_IMPORT", action: "imported", settingsCount: Object.keys(validation.settings).length, customRulesCount: (validation.settings.customRules || []).length }); saveAuditLog(auditLog); }); chrome.storage.local.set(validation.settings, () => { updateActionBadge(); sendResponse({ ok: true, appliedSettings: Object.keys(validation.settings).length }); }); return true; }
+  if (message.type === "IMPORT_CONFIG") {
+    if (!message.config || !message.config.settings) { sendResponse({ ok: false, error: "Invalid config format" }); return true; }
+    const validation = validateConfigImport(message.config.settings);
+    if (!validation.valid) { sendResponse({ ok: false, error: "Invalid config: " + validation.errors.join(", ") }); return true; }
+    const importEvent = createContextEvent({
+      source: "browser",
+      application: "maskit-options",
+      dataType: "CONFIG_IMPORT",
+      confidence: 1,
+      risk: "low",
+      policy: { name: "default", version: "1", result: "allow" },
+      action: "allowed",
+      explanation: `Configuration imported (${Object.keys(validation.settings).length} settings).`
+    });
+    recordAuditEvents([importEvent]);
+    chrome.storage.local.set(validation.settings, () => { updateActionBadge(); sendResponse({ ok: true, appliedSettings: Object.keys(validation.settings).length }); });
+    return true;
+  }
   if (message.type === "UPDATE_BADGE") { updateActionBadge(); sendResponse({ ok: true }); return true; }
   if (message.type === "OPEN_OPTIONS") { chrome.runtime.openOptionsPage(); sendResponse({ ok: true }); return true; }
   if (message.type === "GET_PAUSE_STATE") { getPauseState((paused) => sendResponse({ paused })); return true; }

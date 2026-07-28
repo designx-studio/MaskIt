@@ -99,7 +99,27 @@ public sealed class ClipboardMonitor : IDisposable
             var context = _foreground.GetForegroundContext();
             var result = _core.Scan(text, context, "windows-clipboard");
             if (result.Findings.Count == 0) return;
-            foreach (var evt in result.AuditEvents) _audit.LogEvent(new AuditEvent { Type = evt.Type, Severity = evt.Severity, Source = evt.Source, App = evt.App, Action = evt.Action, RiskScore = evt.RiskScore, MatchedRule = evt.MatchedRule, PolicyApplied = evt.PolicyApplied });
+            foreach (var evt in result.AuditEvents)
+            {
+                _audit.LogEvent(new AuditEvent
+                {
+                    SchemaVersion = evt.SchemaVersion,
+                    EventId = evt.EventId,
+                    Timestamp = evt.Timestamp,
+                    Source = evt.Source,
+                    Application = evt.Application,
+                    User = evt.User,
+                    Device = evt.Device,
+                    DataType = evt.DataType,
+                    Confidence = evt.Confidence,
+                    Risk = evt.Risk,
+                    Policy = evt.Policy,
+                    Action = evt.Action,
+                    Explanation = evt.Explanation,
+                    RuleId = evt.RuleId,
+                    MatchedValueHash = evt.MatchedValueHash
+                });
+            }
             if (result.RedactedText == text) return;
             ReplaceClipboard(result.RedactedText);
             OnRedaction?.Invoke(context.ProcessName, result.Findings.Count);

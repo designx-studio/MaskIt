@@ -1,13 +1,61 @@
 const fs = require('fs');
 const path = require('path');
+
 const ROOT = path.resolve(__dirname, '..');
 const RULE_DIR = path.join(ROOT, 'maskit-core', 'rules');
-function loadRuleBundle() {
-  const files = ['pii.json', 'financial.json', 'secrets.json'];
-  return files.flatMap((file) => JSON.parse(fs.readFileSync(path.join(RULE_DIR, file), 'utf8')).rules || []);
+const RULE_FILES = ['pii.json', 'financial.json', 'secrets.json'];
+
+let cachedBundle = null;
+let cachedVersions = null;
+
+function loadRuleBundle(forceReload = false) {
+  if (cachedBundle && !forceReload) return cachedBundle;
+  const rules = RULE_FILES.flatMap((file) => {
+    const full = path.join(RULE_DIR, file);
+    if (!fs.existsSync(full)) throw new Error(`Missing rule file: ${full}`);
+    const parsed = JSON.parse(fs.readFileSync(full, 'utf8'));
+    return parsed.rules || [];
+  });
+  cachedBundle = rules;
+  cachedVersions = RULE_FILES.map((file) => {
+    const parsed = JSON.parse(fs.readFileSync(path.join(RULE_DIR, file), 'utf8'));
+    return parsed.version || '0';
+  });
+  return cachedBundle;
 }
+
 function ruleVersion() {
-  const versions = ['pii.json', 'financial.json', 'secrets.json'].map((file) => JSON.parse(fs.readFileSync(path.join(RULE_DIR, file), 'utf8')).version);
-  return [...new Set(versions)].join(',');
+  if (!cachedVersions) loadRuleBundle();
+  return [...new Set(cachedVersions)].join(',');
 }
-module.exports = { loadRuleBundle, ruleVersion };
+
+function enabledTypeForRule(rule) {
+  const id = String(rule.id || '');
+  if (id.startsWith('API_KEY')) return 'API_KEY';
+  return id;
+}
+
+function findingTypeForRule(rule) {
+  const id = String(rule.id || '');
+  if (id.startsWith('API_KEY')) return 'API_KEY';
+  return id;
+}
+
+function clearRuleCache() {
+  cachedBundle = null;
+  cachedVersions = null;
+}
+
+function getRuleDir() {
+  return RULE_DIR;
+}
+
+module.exports = {
+  RULE_FILES,
+  loadRuleBundle,
+  ruleVersion,
+  enabledTypeForRule,
+  findingTypeForRule,
+  clearRuleCache,
+  getRuleDir
+};

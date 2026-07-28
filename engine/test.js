@@ -26,7 +26,8 @@ const {
     isSiteAllowed,
     maskPreview,
     hostnameMatches,
-    createAuditEvent,
+    createContextEvent,
+    validateContextEvent,
     hashSensitive,
     pruneAuditLog,
     selectPolicy,
@@ -402,35 +403,37 @@ test("disabled rules are not detected", () => {
 
 // ── Phase 2: Audit Log ────────────────────────────────────────────────────
 
-test("createAuditEvent returns structured event", () => {
-    const evt = createAuditEvent({
-        type: "EMAIL",
-        severity: "medium",
+test("createContextEvent returns canonical event", () => {
+    const evt = createContextEvent({
+        dataType: "EMAIL",
+        risk: "medium",
         source: "paste",
-        app: "chatgpt.com",
+        application: "chatgpt.com",
         action: "redacted",
-        riskScore: 10,
-        matchedRule: "EMAIL",
-        policyApplied: "default",
-        value: "john@example.com"
+        policy: { name: "default", version: "1", result: "redact" },
+        explanation: "EMAIL matched in chatgpt.com; policy result was redact.",
+        ruleId: "EMAIL",
+        matchedValue: "john@example.com"
     });
-    assert.ok(evt.id.startsWith("evt_"));
-    assert.strictEqual(evt.type, "EMAIL");
-    assert.strictEqual(evt.severity, "medium");
-    assert.strictEqual(evt.source, "paste");
-    assert.strictEqual(evt.app, "chatgpt.com");
+    assert.ok(evt.eventId.startsWith("evt_"));
+    assert.strictEqual(evt.schemaVersion, "1.0");
+    assert.strictEqual(evt.dataType, "EMAIL");
+    assert.strictEqual(evt.risk, "medium");
+    assert.strictEqual(evt.source, "browser");
+    assert.strictEqual(evt.application, "chatgpt.com");
     assert.strictEqual(evt.action, "redacted");
-    assert.strictEqual(evt.riskScore, 10);
-    assert.ok(typeof evt.timestamp === "number");
-    assert.ok(evt.unmaskToken !== null);
-    assert.strictEqual(evt.unmaskedAt, null);
+    assert.ok(typeof evt.timestamp === "string");
+    assert.ok(evt.matchedValueHash && evt.matchedValueHash.length === 64);
+    assert.ok(!("value" in evt));
+    assert.ok(!("unmaskToken" in evt));
+    assert.ok(validateContextEvent(evt).valid);
 });
 
-test("createAuditEvent defaults for missing fields", () => {
-    const evt = createAuditEvent({});
-    assert.strictEqual(evt.type, "UNKNOWN");
-    assert.strictEqual(evt.severity, "medium");
-    assert.strictEqual(evt.source, "unknown");
+test("createContextEvent defaults for missing fields", () => {
+    const evt = createContextEvent({});
+    assert.strictEqual(evt.dataType, "unknown");
+    assert.strictEqual(evt.risk, "medium");
+    assert.strictEqual(evt.source, "cli");
     assert.strictEqual(evt.action, "redacted");
 });
 
@@ -461,13 +464,17 @@ test("pruneAuditLog keeps all events within retention", () => {
     assert.strictEqual(pruned.length, 2);
 });
 
-test("scanText returns events array", () => {
+test("scanText returns canonical events array", () => {
     const result = scanText("john@example.com", allEnabled);
     assert.ok(Array.isArray(result.events));
     assert.ok(result.events.length > 0);
-    assert.ok(result.events[0].id);
+    assert.ok(result.events[0].eventId);
     assert.ok(result.events[0].timestamp);
-    assert.strictEqual(result.events[0].type, "EMAIL");
+    assert.strictEqual(result.events[0].dataType, "EMAIL");
+    assert.strictEqual(result.events[0].schemaVersion, "1.0");
+    assert.ok(result.events[0].matchedValueHash);
+    assert.ok(!("value" in result.events[0]));
+    assert.ok(validateContextEvent(result.events[0]).valid);
 });
 
 test("scanText returns policyDecisions", () => {

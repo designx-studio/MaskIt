@@ -1,123 +1,64 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Maskit Audit Event",
-    "description": "Structured audit event schema used across all Maskit adapters (browser, agent, MCP)",
-    "type": "object",
-    "required": [
-        "id",
-        "timestamp",
-        "type",
-        "severity",
-        "source",
-        "app",
-        "action"
-    ],
-    "properties": {
-        "id": {
-            "type": "string",
-            "description": "Unique event identifier (evt_<timestamp>_<random>)",
-            "pattern": "^evt_"
-        },
-        "timestamp": {
-            "type": "number",
-            "description": "Unix timestamp in milliseconds"
-        },
-        "type": {
-            "type": "string",
-            "description": "Data type detected (EMAIL, PHONE, API_KEY, CARD, SSN, BANK_ACCOUNT, PASSPORT, IP_ADDRESS, MPESA, CUSTOM:<name>)"
-        },
-        "severity": {
-            "type": "string",
-            "enum": [
-                "critical",
-                "high",
-                "medium",
-                "low"
-            ],
-            "description": "Severity level of the finding"
-        },
-        "source": {
-            "type": "string",
-            "enum": [
-                "paste",
-                "copy",
-                "typing",
-                "contextMenu",
-                "clipboard",
-                "terminal",
-                "api"
-            ],
-            "description": "How the data was intercepted"
-        },
-        "app": {
-            "type": "string",
-            "description": "Application or hostname where the event occurred"
-        },
-        "action": {
-            "type": "string",
-            "enum": [
-                "redacted",
-                "blocked",
-                "allowed",
-                "unmasked"
-            ],
-            "description": "Action taken by the policy engine"
-        },
-        "riskScore": {
-            "type": "number",
-            "description": "Aggregate risk score at time of detection (0-100)"
-        },
-        "matchedRule": {
-            "type": "string",
-            "description": "Rule ID that matched (e.g., API_KEY_OPENAI, EMAIL)"
-        },
-        "policyApplied": {
-            "type": "string",
-            "description": "Policy context that was applied (default, chatgpt.com, etc.)"
-        },
-        "unmaskToken": {
-            "type": [
-                "string",
-                "null"
-            ],
-            "description": "Deterministic hash token for unmasking (null if not applicable)"
-        },
-        "unmaskedAt": {
-            "type": [
-                "number",
-                "null"
-            ],
-            "description": "Timestamp when value was unmasked (null if never unmasked)"
-        },
-        "unmaskedDuration": {
-            "type": [
-                "number",
-                "null"
-            ],
-            "description": "Duration in ms the value was visible (null if never unmasked)"
-        },
-        "appContext": {
-            "type": "object",
-            "description": "Additional app context (Windows agent only)",
-            "properties": {
-                "processName": {
-                    "type": "string"
-                },
-                "processPath": {
-                    "type": "string"
-                },
-                "aiDetected": {
-                    "type": "boolean"
-                },
-                "aiConfidence": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 1
-                },
-                "isLocal": {
-                    "type": "boolean"
-                }
-            }
-        }
-    }
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/designx-studio/MaskIt/blob/main/maskit-core/audit-schema/event.json",
+  "title": "Maskit Canonical Context Event (legacy filename)",
+  "description": "Alias of context-event.schema.json. All producers must emit this shape only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "timestamp",
+    "source",
+    "application",
+    "dataType",
+    "confidence",
+    "risk",
+    "policy",
+    "action",
+    "explanation"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "1.0" },
+    "eventId": { "type": "string", "minLength": 8 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "source": { "type": "string", "enum": ["browser", "windows", "cli", "mcp", "ci", "gateway"] },
+    "application": { "type": "string", "minLength": 1 },
+    "user": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "displayName": { "type": "string" },
+        "hashedId": { "type": "string" }
+      }
+    },
+    "device": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "platform": { "type": "string" },
+        "hostnameHash": { "type": "string" }
+      }
+    },
+    "dataType": { "type": "string", "minLength": 1 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "risk": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "result"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "result": { "type": "string", "enum": ["allow", "warn", "redact", "block", "require_approval"] }
+      }
+    },
+    "action": { "type": "string", "enum": ["allowed", "warned", "redacted", "blocked", "approval_required"] },
+    "explanation": { "type": "string", "minLength": 1 },
+    "ruleId": { "type": "string" },
+    "matchedValueHash": { "type": "string" },
+    "chainHash": { "type": "string" }
+  }
 }

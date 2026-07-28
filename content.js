@@ -439,93 +439,23 @@ function _maskitInit() {
     overlay.addEventListener("click", function (e) { if (e.target === overlay) { close(); onCancel(); } });
   }
 
-  // ── Audit event generation ──────────────────────────────────────────────
+  // ── Audit event generation (canonical schema only) ──────────────────────
 
-  function generateAuditEvents(findings, source, riskScore) {
+  function generateAuditEvents(findings, source) {
+    const app = location.hostname || "unknown";
     return findings.map(function (f) {
-      return {
-        id: "evt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
-        timestamp: Date.now(),
-        type: f.type,
-        severity: f.severity || "medium",
-        source: source || "unknown",
-        app: location.hostname || "unknown",
-        action: "redacted",
-        riskScore: riskScore || 0,
-        matchedRule: f.ruleName || f.type,
-        policyApplied: currentSettings.activePolicy || "default",
-        unmaskToken: null,
-        unmaskedAt: null,
-        unmaskedDuration: null
-      };
+      return createEventFromFinding({
+        finding: f,
+        decision: { action: "redact" },
+        context: {
+          source: source || "browser",
+          app: app,
+          domain: app,
+          policyName: currentSettings.activePolicy || "default"
+        },
+        settings: currentSettings
+      });
     });
-  }
-
-  // ── Unmask UI ───────────────────────────────────────────────────────────
-
-  function showUnmaskButton(text, findings, target) {
-    if (!findings || !findings.length) return;
-
-    const existing = document.getElementById("maskit-unmask-banner");
-    if (existing) existing.remove();
-
-    const banner = document.createElement("div");
-    banner.id = "maskit-unmask-banner";
-    Object.assign(banner.style, {
-      position: "fixed",
-      bottom: "60px",
-      right: "20px",
-      background: "#1a1d26",
-      color: "#e0e6ed",
-      padding: "10px 16px",
-      borderRadius: "12px",
-      zIndex: "2147483645",
-      fontSize: "13px",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      boxShadow: "0 4px 18px rgba(0,0,0,0.45)",
-      border: "1px solid #2e3340",
-      display: "flex",
-      alignItems: "center",
-      gap: "10px",
-      maxWidth: "360px"
-    });
-
-    const info = document.createElement("span");
-    info.style.cssText = "color:#9aa4b2;flex:1;";
-    info.textContent = findings.length + " item(s) masked — click to reveal for 30s";
-
-    const btn = document.createElement("button");
-    btn.textContent = "Unmask (audited)";
-    Object.assign(btn.style, {
-      background: "rgba(246,185,59,0.15)",
-      color: "#f6b93b",
-      border: "1px solid rgba(246,185,59,0.3)",
-      borderRadius: "7px",
-      padding: "5px 10px",
-      fontSize: "12px",
-      fontWeight: "500",
-      cursor: "pointer",
-      fontFamily: "inherit",
-      whiteSpace: "nowrap"
-    });
-
-    btn.addEventListener("click", function () {
-      banner.remove();
-      showUnmaskToast("Value unmasked — logged in audit trail");
-    });
-
-    banner.appendChild(info);
-    banner.appendChild(btn);
-    (document.body || document.documentElement).appendChild(banner);
-
-    // Auto-remove after 15s if not clicked
-    setTimeout(function () {
-      if (banner.parentNode) banner.remove();
-    }, 15000);
-  }
-
-  function showUnmaskToast(message) {
-    showToast(message);
   }
 
   // ── Redaction ─────────────────────────────────────────────────────────────
@@ -533,8 +463,8 @@ function _maskitInit() {
   function applyRedaction({ text, findings, target, source, replaceAll, riskScore }) {
     const sanitized = sanitizeText(text, findings, currentSettings);
 
-    // Generate audit events
-    const auditEvents = generateAuditEvents(findings, source, riskScore);
+    // Canonical audit events — no raw values
+    const auditEvents = generateAuditEvents(findings, source);
     recordAuditEvents(auditEvents, source);
 
     const commit = () => {

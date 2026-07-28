@@ -93,16 +93,6 @@ public class AuditEvent
     public string? RuleId { get; set; }
     public string? MatchedValueHash { get; set; }
     public string? ChainHash { get; set; }
-    [JsonIgnore] public string Id { get => EventId; set => EventId = value; }
-    [JsonIgnore] public string App { get => Application; set => Application = value; }
-    [JsonIgnore] public string Type { get => DataType; set => DataType = value; }
-    [JsonIgnore] public string Severity { get => Risk; set => Risk = value; }
-    [JsonIgnore] public int RiskScore { get; set; }
-    [JsonIgnore] public string MatchedRule { get => RuleId ?? ""; set => RuleId = value; }
-    [JsonIgnore] public string PolicyApplied { get => Policy.Name; set => Policy.Name = value; }
-    [JsonIgnore] public string? UnmaskToken { get => MatchedValueHash; set => MatchedValueHash = value; }
-    [JsonIgnore] public long? UnmaskedAt { get; set; }
-    [JsonIgnore] public long? UnmaskedDuration { get; set; }
     [JsonIgnore] public AppContextInfo? AppContext { get; set; }
 }
 public class PolicyInfo { public string Name { get; set; } = "default"; public string Version { get; set; } = "1"; public string Result { get; set; } = "redact"; }

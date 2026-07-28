@@ -1,22 +1,16 @@
 # Engineering Stabilization Status
 
-The stabilization plan is the scope gate for this release line. No new product scope is approved until every area reaches 8/10 with evidence.
+The stabilization plan is the scope gate for this release line.
 
-## Implemented in this stabilization pass
+## Completed in production completion pass
 
-- Popup status markup now exists and popup rendering is null-safe.
-- Keyboard activation was added to the protection toggle.
-- A deterministic policy simulation helper was added at `engine/simulation.js`.
-- A browser-surface validation gate was added at `scripts/validate-browser-surface.js`.
-- The engineering stabilization plan defines acceptance criteria for the shared rule engine, one event schema, popup behavior, unmasking, browser E2E, release verification, policy simulation, and confidence/explanations.
+- Shared rule runtime: Node/MCP/CLI load `maskit-core/rules` via `engine/rule-loader.js`; browser consumes generated `browser-rules.js` from the same sources; Windows agent loads the same JSON files.
+- Canonical context events only: `engine/context.js` / browser `context-event.js` are the sole event builders. Raw values are never stored.
+- Incomplete unmask UI, code paths, and public claims removed. v1 behaviour is Detect → Warn/Block/Mask → Audit.
+- Packaged Chromium E2E (`npm run test:e2e:chromium`) loads the built extension, exercises detection/masking/audit/popup, and writes failure logs under `dist/e2e-failures/`.
+- Release packaging produces browser ZIPs, CLI/MCP tarballs, `SHA256SUMS.txt`, and `RELEASE-METADATA.json`.
 
-## Still blocked
+## Residual environment notes
 
-- The hardcoded browser and Node detectors are not yet fully replaced by runtime-loaded `maskit-core` rules.
-- The canonical context schema is not yet emitted by every surface.
-- Browser E2E requires a real browser runner and packaged-extension fixtures.
-- Unmasking remains incomplete until the UI restores values and expiry is tested.
-- Artifact signing requires a configured signing identity; checksums alone are not signatures.
-- Policy simulation is available as a helper but is not yet exposed through every CLI/MCP surface.
-
-These are explicit blockers, not marketing claims. The repository remains Late Alpha until the gates are green.
+- Artifact signing still requires a configured signing identity; checksums are not signatures.
+- Windows agent package build requires the .NET 8 SDK on the build host.
