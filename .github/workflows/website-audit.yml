@@ -1,0 +1,31 @@
+name: Website audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm run audit:website
+      - run: npm run build
+      - name: Verify generated artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/maskit-chrome.zip
+          test -s dist/maskit-edge.zip
+          test -s dist/maskit-firefox.zip
+          test -s dist/maskit-opera.zip
+          test -s dist/maskit-mcp.tar.gz
