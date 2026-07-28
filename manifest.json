@@ -8,7 +8,7 @@
   "host_permissions": ["https://chatgpt.com/*", "https://chat.openai.com/*", "https://claude.ai/*", "https://gemini.google.com/*", "https://copilot.microsoft.com/*", "https://*.cursor.com/*"],
   "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'self'; style-src 'self'"},
   "background": {"service_worker": "background.js"},
-  "icons": {"16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png", "svg": "icons/icon.svg"},
+  "icons": {"16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png"},
   "action": {"default_title": "Maskit", "default_popup": "popup.html", "default_icon": {"16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png"}},
   "options_page": "options.html",
   "commands": {"toggle-protection": {"suggested_key": {"default": "Alt+Shift+M"}, "description": "Toggle Maskit protection"}, "pause-protection": {"suggested_key": {"default": "Alt+Shift+P"}, "description": "Pause Maskit temporarily"}},
