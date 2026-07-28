@@ -1,22 +1,24 @@
 # Session Changes — Production Stabilization (2026-07-28)
 
-This document records the engineering work completed in the MaskIt final production stabilization session. It is a change log of **what was implemented**, not a readiness audit.
+This document records the engineering work completed in the MaskIt production stabilization sessions on 2026-07-28. It is a change log of **what was implemented**, not a readiness audit.
 
-**Commit:** `3967d10479ca36aa58ea0aeff374906b4321e23e`  
-**Branch:** `main` (pushed to `origin`)  
-**Version:** `2.4.0`
+| Field | Value |
+|-------|--------|
+| **Branch** | `main` |
+| **Version** | `2.4.0` |
+| **Commits** | `3967d10` (browser/CLI/MCP stabilization), `3b6c648` (Windows agent package + pipeline) |
+| **Remote** | `https://github.com/designx-studio/MaskIt.git` |
 
 ---
 
 ## Goals
-
-Complete remaining production work for MaskIt:
 
 1. Canonical audit event migration across all adapters  
 2. One shared rule-loading architecture  
 3. Removal of incomplete unmask functionality  
 4. Real packaged browser E2E tests  
 5. Production release artifacts with verification  
+6. **Windows agent production package** (remaining gap after browser/CLI/MCP)
 
 Do **not** stop at validators or reports — implement working behaviour, run tests, and ship a release candidate.
 
@@ -70,7 +72,7 @@ Adapters created different audit shapes. The browser content script built legacy
 | `mcp-server/cli.js` | Passes `_context: { source: "cli", app: "maskit-cli" }` |
 | `maskit-agent/.../MaskitCoreService.cs` | Full canonical event fields + normalized `windows` source |
 | `maskit-agent/.../ClipboardMonitor.cs` | Maps Core → Audit 1:1 (no legacy field aliases) |
-| `maskit-agent/.../AuditLogger.cs` | Dropped unmask / legacy JsonIgnore aliases |
+| `maskit-agent/.../AuditLogger.cs` | Canonical camelCase JSONL; no unmask/raw fields; chain hash |
 | `maskit-core/audit-schema/event.json` | Aligned to canonical schema (no unmask properties) |
 
 ### Verification
@@ -78,6 +80,7 @@ Adapters created different audit shapes. The browser content script built legacy
 - `npm run test:canonical-events`
 - `npm run test:adapter-events`
 - Parity tests assert every engine event validates and stores no raw values
+- Windows `--scan --json` and `--self-test` emit schema 1.0 events with hashes only
 
 ---
 
@@ -97,10 +100,10 @@ maskit-core/rules/*.json
         └─► Windows RuleEngine.LoadRules(rulesPath) ──► agent
 ```
 
-- **Node detector** no longer embeds PII/API key pattern tables; it loads the shared bundle via `loadRuleBundle()`.
+- **Node detector** loads the shared bundle via `loadRuleBundle()`.
 - **Browser detector** consumes `MASKIT_RULE_BUNDLE` (or falls back to `rule-loader` when required from Node in tests).
-- Finding types stay consistent: `API_KEY_*` rules map to type `API_KEY` for settings/policy toggles; `ruleName` retains the specific rule id.
-- `getRules()` / `getStatus()` report shared rule version and counts.
+- **Windows `RuleEngine`** loads `pii.json` / `financial.json` / `secrets.json` in the same order; normalizes `API_KEY_*` → finding type `API_KEY` (rule id preserved on `Finding.Name` / event `ruleId`).
+- Finding types stay consistent across adapters for policy toggles.
 
 ### Files
 
@@ -110,12 +113,14 @@ maskit-core/rules/*.json
 | `engine/detector.js` | Full rewrite onto shared rules |
 | `detector.js` | Shared-bundle consumer with Node/browser dual load |
 | `browser-rules.js` | Regenerated from maskit-core (40 rules) |
+| `maskit-agent/.../RuleEngine.cs` | Stable file order, API_KEY normalization, match timeout |
 | `parity-test.js` | Engine ↔ browser finding parity + canonical event checks |
 
 ### Verification
 
 - `npm test` (includes parity)
 - `npm run test:regex` (ReDoS checks on **shared rule JSON only**)
+- `Maskit.Agent.exe --parity` (shared fixtures against packaged rules)
 
 ---
 
@@ -185,7 +190,7 @@ Playwright-based packaged extension E2E:
 
 ---
 
-## 5. Release artifacts
+## 5. Release artifacts (browser, CLI, MCP)
 
 ### Problem
 
@@ -193,18 +198,124 @@ Build did not always produce CLI package, checksums, or version metadata. Clean-
 
 ### Solution
 
-`scripts/build.js` now:
+`scripts/build.js`:
 
 1. Generates browser rules from `maskit-core`  
 2. Builds Chrome / Edge / Firefox / Opera / generic extension ZIPs (MV3, includes `browser-rules.js` + `context-event.js` + `VERSION.json`)  
 3. Builds **CLI** tarball (`maskit-cli.tar.gz`) with self-contained requires  
 4. Builds **MCP** tarball (`maskit-mcp.tar.gz`)  
-5. Writes `dist/SHA256SUMS.txt` and `dist/RELEASE-METADATA.json`  
-6. Uses `zip` when available, otherwise PowerShell `Compress-Archive`  
+5. Invokes Windows agent packaging when .NET 8 SDK is available  
+6. Writes `dist/SHA256SUMS.txt` and `dist/RELEASE-METADATA.json`  
+7. Uses `zip` when available, otherwise PowerShell `Compress-Archive`  
 
 Verification scripts updated for Windows (`tar` fallback for ZIP listing/extract) and for CLI exit code `1` when findings exist (expected).
 
-### Artifact set (RC, version 2.4.0)
+---
+
+## 6. Windows agent production package
+
+### Problem
+
+After browser/CLI/MCP completion, the remaining production gap was the **Windows agent release**: no reliable self-contained package, weak clean-install proof, incomplete parity with other adapters, and CI/release that did not always produce `maskit-windows-agent.zip` with checksums.
+
+### Solution
+
+#### Agent runtime
+
+| Capability | Implementation |
+|------------|----------------|
+| Rules | Packaged `publish/maskit-core/rules` next to exe (no repo path required) |
+| Policy | Loads `maskit-core/policy/defaults.json` + `contexts.json` |
+| Events | Canonical schema only; camelCase JSONL audit log |
+| Unmask | None |
+| Tray | Default interactive mode (`Application.Run`) |
+| Headless | `--scan`, `--self-test`, `--parity`, `--help` |
+
+#### Package layout (`maskit-windows-agent.zip`)
+
+```
+README.md
+VERSION.json
+parity-fixtures.json
+publish/
+  Maskit.Agent.exe          # self-contained win-x64 single-file
+  maskit-core/
+    rules/*.json
+    policy/*.json
+    audit-schema/*.json
+  VERSION.json
+  parity-fixtures.json
+```
+
+#### Build
+
+```bash
+npm run build:windows   # → dist/maskit-windows-agent.zip
+# or
+npm run build           # full release set including Windows when SDK present
+```
+
+`scripts/build-windows-agent.js`:
+
+- Resolves `dotnet` from `PATH`, `DOTNET_ROOT`, or `%LOCALAPPDATA%\dotnet`
+- `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true`
+- Asserts required files, writes metadata, zips staging tree
+
+#### Clean-install verification
+
+`scripts/verify-windows-package.js`:
+
+1. Requires `dist/maskit-windows-agent.zip` when `MASKIT_REQUIRE_WINDOWS_ARTIFACT=1`  
+2. Lists ZIP; checks README, VERSION, exe, rules, policy  
+3. Extracts to a temp directory  
+4. On Windows: runs `--self-test` and `--scan ... --json`  
+5. Asserts canonical events (schema, source `windows`, 64-char hash, no raw/unmask fields)  
+6. Confirms rules resolve from packaged tree (no monorepo dependency)
+
+#### Cross-adapter parity
+
+`scripts/verify-cross-adapter-parity.js`:
+
+- Same `parity-fixtures.json` inputs for browser, CLI/engine, MCP, and Windows (when binary present)
+- Compares `dataType`, confidence, risk, policy result, action (and rule id when aligned)
+- Only `source` / `application` are allowed to differ by design
+
+#### CI / release
+
+| Workflow | Change |
+|----------|--------|
+| `.github/workflows/ci.yml` | `windows-agent` job on `windows-latest`: build ZIP, require artifact, package verify, `--parity`, cross-adapter parity, upload artifact |
+| `.github/workflows/release.yml` | Runs on `windows-latest` with Node + .NET 8; `npm run build` produces full set including Windows agent; attaches ZIP + SHA256SUMS + RELEASE-METADATA to GitHub Release |
+
+### Files
+
+| File | Change |
+|------|--------|
+| `scripts/build-windows-agent.js` | **New** publish + package |
+| `scripts/verify-windows-package.js` | Structure + clean-install runtime checks |
+| `scripts/verify-cross-adapter-parity.js` | **New** multi-adapter parity |
+| `scripts/build.js` | Integrates Windows package when SDK available |
+| `scripts/verify-release-artifacts.js` | Windows ZIP checks (not browser `manifest.json`) |
+| `package.json` | `build:windows`, `test:cross-adapter-parity` |
+| `maskit-agent/Maskit.Agent/Program.cs` | Headless modes + tray entry |
+| `maskit-agent/.../RuleEngine.cs`, `MaskitCoreService.cs`, `AuditLogger.cs`, `Config.cs`, `PolicyEngine.cs`, `CoreParityTests.cs`, `TrayApplication.cs` | Production alignment |
+| `maskit-agent/README.md` | Package layout and modes |
+| `.gitignore` | Ignore `**/bin/`, `**/obj/` |
+
+### Verification (executed)
+
+| Command | Result |
+|---------|--------|
+| `npm run build:windows` | Pass |
+| `Maskit.Agent.exe --parity` | Pass (0 failed) |
+| `MASKIT_REQUIRE_WINDOWS_ARTIFACT=1 npm run test:windows-package` | Pass (structure + self-test + scan) |
+| `npm run test:cross-adapter-parity` | Pass (9 fixtures; 8 compared live on Windows) |
+| `npm run build` | Pass (full set including Windows) |
+| `npm run test:release-artifacts` | Pass (8 artifacts + SHA-256) |
+
+---
+
+## Final release set (RC, version 2.4.0)
 
 | Artifact | Role |
 |----------|------|
@@ -215,29 +326,24 @@ Verification scripts updated for Windows (`tar` fallback for ZIP listing/extract
 | `maskit-extension.zip` | Generic browser package |
 | `maskit-cli.tar.gz` | CLI outside monorepo |
 | `maskit-mcp.tar.gz` | MCP + engine + maskit-core |
+| `maskit-windows-agent.zip` | Self-contained Windows tray agent |
 | `SHA256SUMS.txt` | Per-file SHA-256 |
 | `RELEASE-METADATA.json` | Version, build time, artifact list |
 
-### SHA-256 (this session’s final build)
+### SHA-256 (final build this session)
 
 ```
-c8e30d9bbfd74f45e85ce9248418c4a8b40f9b726b92cbc0f456aa839abed265  maskit-chrome.zip
-bcb73828b739b2af62e249c4b1d64771eff23dbe555b9c2de91527ac6642ef25  maskit-edge.zip
-4cde17901a16de73d005e1ef0d006f77bbc3cae373a0312f38c8f09fe40687f8  maskit-firefox.zip
-33eea9d5698ea7657af44afd40a5e6e9a07fb54146d1d25e70d8c95b0f846df3  maskit-opera.zip
-9240bea821c09c0cfcb1c41a0dd274fb325a5ec8c451ce6625232270a17c40cc  maskit-extension.zip
-879aac0ad605d0015c940b60e172ef2239eb2b3c07358cb76d9af2050f7f976e  maskit-cli.tar.gz
-ab0ab1b54a2de8c620e06b5ecafeeef0bf184edddb24dd6bff616c2c6a6123c0  maskit-mcp.tar.gz
+d86bead6169c20d22a826852466bc6f8e1e01bb8c6e8f80bee04946b9457c836  maskit-chrome.zip
+cb707d68ffcee6f9f48ed7a4c904d908ae58aa8d334d60fff8c3c8187067e246  maskit-edge.zip
+b9ebda21c479e653025479608f7375242699b36e0ed1378b3605016fbf4ccce1  maskit-firefox.zip
+00a100cbf7f81c97d1712956f2b138c964a9124cca609a0b61de028c6cd05fa2  maskit-opera.zip
+54c55e75a31bdfa857ca5b8ee478fd8f75b261287f71830979f363eecb242775  maskit-extension.zip
+1ece2d47d74982d99a1fbb761f7322851180ca73518b46f628673956b820e7b5  maskit-cli.tar.gz
+4d26d1e15f9893f38ee39da0d711fac3c941590f7e709810783414dff46701b3  maskit-mcp.tar.gz
+6ab76dc13b78ac64b5ed018c1d39628805e8b52b0896096d0f86ff62fee356d0  maskit-windows-agent.zip
 ```
 
-Rebuild with `npm run build` refreshes these hashes.
-
-### Verification
-
-- `npm run test:release-artifacts`
-- `npm run test:clean-install` (CLI + MCP extract-and-run outside the repo)
-- `npm run check:browser-artifact`
-- `npm run test:windows-package` — **skipped** when `maskit-windows-agent.zip` is absent
+Rebuild with `npm run build` (requires .NET 8 SDK for the Windows artifact) refreshes these hashes.
 
 ---
 
@@ -251,23 +357,25 @@ Rebuild with `npm run build` refreshes these hashes.
 | `npm run test:adapter-events` | Pass |
 | `npm run test:stabilization` | Pass |
 | `npm run test:browser-surface` | Pass |
-| `npm run build` | Pass |
+| `npm run test:cross-adapter-parity` | Pass |
+| `npm run build` | Pass (browser + CLI + MCP + Windows) |
 | `npm run test:release-artifacts` | Pass |
-| `npm run test:clean-install` | Pass |
+| `npm run test:clean-install` | Pass (CLI + MCP) |
 | `npm run check:browser-artifact` | Pass |
 | `npm run test:e2e:chromium` | Pass (Edge full extension load) |
-| `npm run test:windows-package` | Skipped (no agent ZIP / no .NET SDK) |
+| `npm run test:windows-package` | Pass (required artifact on this host) |
+| `Maskit.Agent.exe --parity` | Pass |
 
 ---
 
-## Remaining environment limitations
+## Remaining limitations (honest)
 
-These were **attempted** and left incomplete only because of the host, not missing product design:
+These are environment or ops gaps, not missing adapter design:
 
-1. **Windows agent binary package** — .NET 8 SDK was not installed; agent source was updated for canonical events but `maskit-windows-agent.zip` was not built here.  
+1. **Code signing** — artifacts have checksums, not Authenticode / release signatures (no signing identity).  
 2. **Chrome-channel E2E** — full load failed to expose a service worker; Edge succeeded. Packaged-surface fallback remains.  
-3. **Code signing** — artifacts have checksums, not cryptographic signatures (no signing identity).  
-4. **Playwright Chromium download** — CDN timed out; E2E uses system Chrome/Edge channels instead.
+3. **Tray/clipboard desktop smoke in CI** — clean-install proves headless `--self-test` / `--scan`, not interactive tray under a logged-in desktop session.  
+4. **Custom rules via Windows `--scan` CLI** — custom fixture is covered by in-process `--parity`; not by headless `--scan` flags.
 
 ---
 
@@ -277,18 +385,21 @@ These were **attempted** and left incomplete only because of the host, not missi
 
 - `context-event.js`
 - `docs/session-changes-2026-07-28.md` (this file)
+- `scripts/build-windows-agent.js`
+- `scripts/verify-cross-adapter-parity.js`
 
 ### Substantially rewritten / major edits
 
 - `engine/context.js`, `engine/detector.js`, `engine/index.js`, `engine/rule-loader.js`, `engine/settings.js`
 - `detector.js`, `background.js`, `content.js`, `manifest.json`
 - `scripts/build.js`, `scripts/e2e-chromium.js`
-- `scripts/verify-release-artifacts.js`, `scripts/verify-clean-install.js`, `scripts/check-browser-artifact.js`, `scripts/validate-regex-safety.js`
+- `scripts/verify-release-artifacts.js`, `scripts/verify-clean-install.js`, `scripts/verify-windows-package.js`, `scripts/check-browser-artifact.js`, `scripts/validate-regex-safety.js`
 - `parity-test.js`, `test.js`, `defaults-sync-test.js`, `engine/test.js`
-- Windows agent audit/event mapping (`AuditLogger.cs`, `MaskitCoreService.cs`, `ClipboardMonitor.cs`)
+- Windows agent: `Program.cs`, `RuleEngine.cs`, `MaskitCoreService.cs`, `AuditLogger.cs`, `Config.cs`, `PolicyEngine.cs`, `CoreParityTests.cs`, `TrayApplication.cs`, `Maskit.Agent.csproj`
 - `maskit-core/audit-schema/event.json`
-- Docs: `engineering-stabilization.md`, `security-model.md`, `docs/index.html`
-- `package.json` / `package-lock.json` (Playwright + scripts)
+- Docs: `engineering-stabilization.md`, `security-model.md`, `docs/index.html`, `maskit-agent/README.md`
+- CI: `.github/workflows/ci.yml`, `.github/workflows/release.yml`
+- `package.json` / `package-lock.json`, `.gitignore`
 
 ---
 
@@ -301,7 +412,8 @@ These were **attempted** and left incomplete only because of the host, not missi
 | Unmask | Not supported in v1 |
 | Browser protection | MV3 extension with shared rules + context events |
 | CLI / MCP | Runnable from extracted release tarballs |
-| Release RC | Browser ZIPs + CLI + MCP + checksums + metadata |
+| Windows agent | Self-contained tray agent + headless scan/self-test/parity |
+| Release RC | Browser ZIPs + CLI + MCP + Windows agent + checksums + metadata |
 
 ---
 
@@ -314,6 +426,7 @@ npm run test:regex
 npm run test:canonical-events
 npm run test:adapter-events
 npm run test:stabilization
+npm run test:cross-adapter-parity
 npm run build
 npm run test:release-artifacts
 npm run test:clean-install
@@ -321,10 +434,21 @@ npm run check:browser-artifact
 npm run test:e2e:chromium
 ```
 
-Optional (requires .NET 8 + Windows agent packaging pipeline):
+Windows agent (requires .NET 8 SDK on the build host):
 
 ```bash
-dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj -c Release
-# then produce maskit-windows-agent.zip and:
+npm run build:windows
+# or included automatically in npm run build when SDK is present
+
+set MASKIT_REQUIRE_WINDOWS_ARTIFACT=1   # PowerShell: $env:MASKIT_REQUIRE_WINDOWS_ARTIFACT=1
 npm run test:windows-package
+npm run test:cross-adapter-parity
+```
+
+Headless agent checks after extract:
+
+```powershell
+.\publish\Maskit.Agent.exe --self-test
+.\publish\Maskit.Agent.exe --scan "email test@example.com" --json
+.\publish\Maskit.Agent.exe --parity
 ```
