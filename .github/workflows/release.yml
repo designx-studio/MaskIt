@@ -5,8 +5,11 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,21 +22,48 @@ jobs:
           dotnet-version: '8.0.x'
       - run: npm ci
       - run: npm test
+      - run: npm run test:regex
       - run: npm run build
-      - run: dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release
-      - name: Package Windows agent source and build metadata
-        run: tar -czf dist/maskit-windows-agent-source.tar.gz maskit-agent maskit-core docs/windows-agent.md
-      - name: Package CLI
-        run: tar -czf dist/maskit-cli.tar.gz mcp-server/cli.js engine mcp-server/config.js package.json
+      - run: cd mcp-server && npm ci --ignore-scripts
+      - run: dotnet restore maskit-agent/Maskit.Agent/Maskit.Agent.csproj
+      - run: dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --no-restore
+      - name: Package CLI and MCP server
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/release/cli dist/release/mcp-server
+          cp mcp-server/cli.js dist/release/cli/
+          cp -R engine dist/release/cli/engine
+          cp mcp-server/config.js package.json dist/release/cli/
+          cp -R mcp-server dist/release/mcp-server/package
+          rm -rf dist/release/mcp-server/package/node_modules dist/release/mcp-server/package/.git
+          tar -czf dist/maskit-cli.tar.gz -C dist/release/cli .
+          tar -czf dist/maskit-mcp.tar.gz -C dist/release/mcp-server .
+      - name: Package Windows agent
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/windows-agent
+          cp -R maskit-agent/README.md maskit-agent/Maskit.Agent dist/windows-agent/
+          cd dist/windows-agent
+          zip -qr ../maskit-windows-agent.zip .
+      - name: Verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for asset in maskit-chrome.zip maskit-firefox.zip maskit-edge.zip maskit-opera.zip maskit-extension.zip maskit-cli.tar.gz maskit-mcp.tar.gz maskit-windows-agent.zip; do
+            test -s "dist/$asset"
+          done
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          generate_release_notes: true
           files: |
             dist/maskit-chrome.zip
             dist/maskit-firefox.zip
             dist/maskit-edge.zip
             dist/maskit-opera.zip
-            dist/maskit-mcp.tar.gz
+            dist/maskit-extension.zip
             dist/maskit-cli.tar.gz
-            dist/maskit-windows-agent-source.tar.gz
-          generate_release_notes: true
+            dist/maskit-mcp.tar.gz
+            dist/maskit-windows-agent.zip

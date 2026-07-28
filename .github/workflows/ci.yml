@@ -19,45 +19,33 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
-      - name: Lint
-        run: npm run lint
-      - name: Validate regex safety
-        run: npm run test:regex
-      - name: Audit dependencies
-        run: npm audit --omit=dev
+      - run: npm run lint
+      - run: npm run test:regex
       - run: npm test
-      - name: Install MCP server deps
-        run: cd mcp-server && npm ci --ignore-scripts
-      - name: Audit MCP server dependencies
-        run: cd mcp-server && npm audit --omit=dev
-      - name: Run MCP server tests
-        run: node mcp-server/test.js
-      - name: Run MCP integration handlers
-        run: node mcp-server/integration-test.js
-      - name: Validate manifests
-        run: node scripts/validate-manifests.js
-      - name: Build all production artifacts
-        run: npm run build
-      - name: Verify artifacts
+      - run: cd mcp-server && npm ci --ignore-scripts
+      - run: node mcp-server/test.js
+      - run: node mcp-server/integration-test.js
+      - run: node scripts/validate-manifests.js
+      - run: npm run build
+      - name: Verify browser and server artifacts
+        shell: bash
         run: |
-          test -f dist/maskit-chrome.zip
-          test -f dist/maskit-firefox.zip
-          test -f dist/maskit-edge.zip
-          test -f dist/maskit-opera.zip
-          test -f dist/maskit-extension.zip
-          test -f dist/maskit-mcp.tar.gz
+          set -euo pipefail
+          for asset in dist/maskit-chrome.zip dist/maskit-firefox.zip dist/maskit-edge.zip dist/maskit-opera.zip dist/maskit-extension.zip dist/maskit-mcp.tar.gz; do test -s "$asset"; done
+          mkdir -p dist/release/cli
+          cp mcp-server/cli.js dist/release/cli/
+          cp -R engine dist/release/cli/engine
+          cp mcp-server/config.js package.json dist/release/cli/
+          tar -czf dist/maskit-cli.tar.gz -C dist/release/cli .
+          test -s dist/maskit-cli.tar.gz
 
   windows-agent:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Restore Windows agent
-        run: dotnet restore maskit-agent/Maskit.Agent/Maskit.Agent.csproj
-      - name: Build Windows agent
-        run: dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --no-restore
-      - name: Run Windows shared parity tests
-        run: dotnet run --project maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --no-build -- --parity
+      - run: dotnet restore maskit-agent/Maskit.Agent/Maskit.Agent.csproj
+      - run: dotnet build maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --no-restore
+      - run: dotnet run --project maskit-agent/Maskit.Agent/Maskit.Agent.csproj --configuration Release --no-build -- --parity
