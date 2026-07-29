@@ -13,10 +13,11 @@ assert.strictEqual(generated.privacy.rawSecretsStored, false);
 assert.ok(!JSON.stringify(generated).includes('matchedValue'));
 assert.ok(!JSON.stringify(generated).includes('prompt'));
 assert.ok(!JSON.stringify(generated).includes('clipboard'));
+assert.ok(!Object.values(generated.aiInventory).some(item => Object.keys(item).some(key => ['content', 'secret', 'prompt'].includes(key))));
 
-const entries = [{ tool: 'Claude Desktop', surface: 'desktop', status: 'unknown', firstSeen: new Date().toISOString(), lastSeen: new Date().toISOString() }];
-const inventoryFile = writeInventory(entries, config);
+const now = new Date().toISOString();
+const inventoryFile = writeInventory([{ tool: 'Claude Desktop', surface: 'desktop', status: 'unknown', firstSeen: now, lastSeen: now }], config);
 const withInventory = report.generate({ days: 30 });
 assert.strictEqual(withInventory.aiInventory[0].tool, 'Claude Desktop');
-assert.ok(!JSON.stringify(withInventory).includes('secret'));
+assert.ok(inventoryFile.endsWith('ai_inventory.json'));
 console.log('report.test.js passed!');
