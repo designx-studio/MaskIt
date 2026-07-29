@@ -1,0 +1,64 @@
+{
+  "name": "maskit-vscode",
+  "displayName": "MaskIt AI Context Security",
+  "description": "Protects sensitive credentials and files in your developer environment before they reach AI systems.",
+  "version": "2.4.0",
+  "publisher": "maskit",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Security",
+    "Linters"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "maskit.scanCurrentFile",
+        "title": "MaskIt: Scan Current File"
+      },
+      {
+        "command": "maskit.scanSelection",
+        "title": "MaskIt: Scan Selection"
+      },
+      {
+        "command": "maskit.showFindings",
+        "title": "MaskIt: Show Findings"
+      },
+      {
+        "command": "maskit.explainFinding",
+        "title": "MaskIt: Explain Finding"
+      },
+      {
+        "command": "maskit.scanClipboard",
+        "title": "MaskIt: Scan Clipboard Content"
+      }
+    ],
+    "configuration": {
+      "title": "MaskIt",
+      "properties": {
+        "maskit.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable MaskIt AI protection in VS Code."
+        },
+        "maskit.copyProtection": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable scanning and warning on copying sensitive selections."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.1",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.1.6"
+  }
+}
