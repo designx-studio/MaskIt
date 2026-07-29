@@ -118,6 +118,7 @@ function validateContextEvent(event) {
 
 function confidenceForFinding(finding) {
   if (!finding) return 0.5;
+  if (finding.confidence !== undefined) return finding.confidence;
   if (finding.type === 'API_KEY' || String(finding.ruleName || '').startsWith('API_KEY')) return 0.95;
   if (['CARD', 'SSN', 'BANK_ACCOUNT'].includes(finding.type)) return 0.9;
   if (String(finding.type || '').startsWith('CUSTOM:')) return 0.65;

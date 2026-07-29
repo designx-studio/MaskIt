@@ -1,5 +1,5 @@
 {
-    "version": "2.4.0",
+    "version": "3.0.0",
     "description": "Financial data detection rules",
     "rules": [
         {
@@ -9,7 +9,8 @@
             "flags": "g",
             "type": "financial",
             "severity": "critical",
-            "validator": "luhn"
+            "validator": "luhn",
+            "confidence": 0.9
         },
         {
             "id": "BANK_ACCOUNT",
@@ -18,7 +19,8 @@
             "flags": "gi",
             "type": "financial",
             "severity": "critical",
-            "validator": "bank_account"
+            "validator": "bank_account",
+            "confidence": 0.9
         },
         {
             "id": "MPESA",
@@ -27,7 +29,8 @@
             "flags": "g",
             "type": "financial",
             "severity": "low",
-            "validator": "mpesa"
+            "validator": "mpesa",
+            "confidence": 0.8
         }
     ]
 }

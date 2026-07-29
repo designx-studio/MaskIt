@@ -23,8 +23,74 @@ function pruneAuditLog(events, retentionDays) {
   const cutoff = Date.now() - (retentionDays || 30) * 86400000;
   return (events || []).filter((e) => eventTimestampMs(e) >= cutoff);
 }
-function selectPolicy(context, settings) { const policies = (settings && settings.policies) || MASKIT_POLICY_DEFAULTS.policies; const ctx = context || {}; return (ctx.app && policies[ctx.app]) || (ctx.domain && policies[ctx.domain]) || policies.default || {}; }
-function getPolicyAction(policy, dataType) { const action = policy[dataType] && policy[dataType].action; return POLICY_ACTIONS.includes(action) ? action : "redact"; }
+const fs = require("fs");
+let _activeLocalPolicy = null;
+
+function setLocalPolicy(policy) {
+  if (policy === null || policy === undefined) {
+    _activeLocalPolicy = null;
+    return;
+  }
+  const validation = validatePolicy(policy);
+  if (!validation.ok) throw new Error(validation.error);
+  _activeLocalPolicy = policy;
+}
+
+function getActiveLocalPolicy() {
+  return _activeLocalPolicy;
+}
+
+function validatePolicy(policy) {
+  if (!policy) return { ok: false, error: "Policy is empty" };
+  if (!policy.version) return { ok: false, error: "Policy missing version" };
+  if (policy.mode && !["strict", "loose"].includes(policy.mode)) {
+    return { ok: false, error: "Invalid policy mode" };
+  }
+  if (policy.actions && typeof policy.actions !== "object") {
+    return { ok: false, error: "Policy actions must be an object" };
+  }
+  return { ok: true };
+}
+
+function loadPolicyFile(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return false;
+    const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    setLocalPolicy(parsed);
+    return true;
+  } catch (err) {
+    console.error("Failed to load policy file:", err);
+    return false;
+  }
+}
+
+function mapRuleToPolicyKey(dataType) {
+  const dt = String(dataType).toUpperCase();
+  if (dt.includes("AWS")) return "aws_keys";
+  if (dt.includes("GITHUB")) return "github_tokens";
+  if (["EMAIL", "PHONE", "SSN", "PASSPORT", "IP_ADDRESS", "CARD", "BANK_ACCOUNT", "MPESA"].includes(dt)) return "customer_data";
+  return dataType;
+}
+
+function selectPolicy(context, settings) {
+  if (_activeLocalPolicy) return _activeLocalPolicy;
+  const policies = (settings && settings.policies) || MASKIT_POLICY_DEFAULTS.policies;
+  const ctx = context || {};
+  return (ctx.app && policies[ctx.app]) || (ctx.domain && policies[ctx.domain]) || policies.default || {};
+}
+
+function getPolicyAction(policy, dataType) {
+  if (policy && policy.actions) {
+    const key = mapRuleToPolicyKey(dataType);
+    const action = policy.actions[key] || policy.actions[dataType];
+    if (POLICY_ACTIONS.includes(action)) return action;
+    if (policy.mode === "strict") return "block";
+    return "redact";
+  }
+  const action = policy[dataType] && policy[dataType].action;
+  return POLICY_ACTIONS.includes(action) ? action : "redact";
+}
+
 function isAIToolsAllowed(killswitch, now = new Date()) { const ks = killswitch || KILLSWITCH_DEFAULTS; if (!ks.enabled) return { allowed: true, reason: "" }; if (ks.duration && now < new Date(ks.duration)) return { allowed: false, reason: "AI tools restricted until " + new Date(ks.duration).toISOString() }; if (!ks.duration && !ks.schedule) return { allowed: false, reason: ks.message }; if (ks.schedule) { const disable = parseTime(ks.schedule.disable), enable = parseTime(ks.schedule.enable), day = now.getDay(), minutes = now.getHours() * 60 + now.getMinutes(); if (ks.schedule.daysOfWeek?.includes(day) && disable !== null && enable !== null && (disable > enable ? minutes >= disable || minutes < enable : minutes >= disable && minutes < enable)) return { allowed: false, reason: "AI tools disabled by schedule" }; } return { allowed: true, reason: "" }; }
 function parseTime(value) { if (typeof value !== "string") return null; const [h, m] = value.split(":").map(Number); return Number.isInteger(h) && Number.isInteger(m) && h >= 0 && h < 24 && Number.isInteger(m) && m >= 0 && m < 60 ? h * 60 + m : null; }
 function getUserIdentity() { return null; }
@@ -36,4 +102,4 @@ function escapeHtml(value) { return String(value || "").replace(/&/g, "&amp;").r
 function isRegexSafe(pattern) { const text = String(pattern || "").trim(); return !!text && text.length <= REGEX_LIMITS.maxPatternLength && !(/\{(\d+)?,\}/.test(text) || /(\([^)]*[+*][^)]*\))[+*{]/.test(text) || /(\.\*)[+*]|\(\.\*\)[+*]/.test(text) || /\([^)]+\)\{(\d+),\}/.test(text) || /\([^()]*\|[^()]*\)[+*]/.test(text)); }
 function validateCustomRegexPattern(pattern) { const text = String(pattern || "").trim(); if (!text) return { ok: false, error: "Pattern is required." }; if (text.length > REGEX_LIMITS.maxPatternLength) return { ok: false, error: `Pattern must be ${REGEX_LIMITS.maxPatternLength} characters or fewer.` }; if (!isRegexSafe(text)) return { ok: false, error: "Pattern looks unsafe or too complex." }; try { new RegExp(text); return { ok: true }; } catch { return { ok: false, error: "Invalid regex syntax." }; } }
 function limitScanText(text) { const value = String(text || ""); return value.length <= REGEX_LIMITS.maxScanLength ? value : value.slice(0, REGEX_LIMITS.maxScanLength); }
-module.exports = { MASKIT_SUPPORTED_SITES, REGEX_LIMITS, MASKIT_DEFAULTS, SEVERITY_DEFAULTS, SEVERITY_WEIGHTS, SEVERITY_LEVELS, MASKIT_STATS_DEFAULTS, AUDIT_LOG_DEFAULTS, hashSensitive, hashSensitiveAsync, getHashSalt, pruneAuditLog, eventTimestampMs, POLICY_ACTIONS, MASKIT_POLICY_DEFAULTS, selectPolicy, getPolicyAction, KILLSWITCH_DEFAULTS, isAIToolsAllowed, parseTime, getUserIdentity, isUserExempt, hostnameMatches, isSiteAllowed, maskPreview, escapeHtml, isRegexSafe, validateCustomRegexPattern, limitScanText };
+module.exports = { MASKIT_SUPPORTED_SITES, REGEX_LIMITS, MASKIT_DEFAULTS, SEVERITY_DEFAULTS, SEVERITY_WEIGHTS, SEVERITY_LEVELS, MASKIT_STATS_DEFAULTS, AUDIT_LOG_DEFAULTS, hashSensitive, hashSensitiveAsync, getHashSalt, pruneAuditLog, eventTimestampMs, POLICY_ACTIONS, MASKIT_POLICY_DEFAULTS, selectPolicy, getPolicyAction, KILLSWITCH_DEFAULTS, isAIToolsAllowed, parseTime, getUserIdentity, isUserExempt, hostnameMatches, isSiteAllowed, maskPreview, escapeHtml, isRegexSafe, validateCustomRegexPattern, limitScanText, validatePolicy, setLocalPolicy, getActiveLocalPolicy, loadPolicyFile };

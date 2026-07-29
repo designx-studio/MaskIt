@@ -9,7 +9,7 @@ function assertEvent(event, label) {
   for (const field of required) assert.ok(Object.prototype.hasOwnProperty.call(event, field), `${label}: missing ${field}`);
   assert.ok(!('value' in event) && !('matchedValue' in event), `${label}: raw value persisted`);
 }
-for (const source of ['cli','mcp','browser','windows']) {
+for (const source of ['cli','mcp','browser','windows','vscode']) {
   const result = engine.scanText('Contact test@example.com with fake key AKIAIOSFODNN7EXAMPLE', { _context: { source, app: `adapter-${source}` } });
   assert.ok(result.events.length, `${source}: no events`);
   result.events.forEach((event) => assertEvent(event, source));

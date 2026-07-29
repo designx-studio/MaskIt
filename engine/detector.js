@@ -134,6 +134,7 @@ function detectSensitiveData(text, settings) {
         type: findingType,
         value: match,
         severity: rule.severity || (SEVERITY_DEFAULTS[findingType] || 'medium'),
+        confidence: rule.confidence || 0.85,
         ruleName: rule.id
       });
     });
