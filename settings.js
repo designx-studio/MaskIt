@@ -4,9 +4,14 @@ const MASKIT_SUPPORTED_SITES = [
   "https://claude.ai/*",
   "https://gemini.google.com/*",
   "https://copilot.microsoft.com/*",
+  "https://*.copilot.microsoft.com/*",
   "https://*.cursor.com/*"
 ];
 const REGEX_LIMITS = { maxPatternLength: 120, maxCustomRules: 15, maxScanLength: 50000 };
+const POLICY_ACTIONS = ["allow", "redact", "block"];
+const MASKIT_POLICY_DEFAULTS = { activePolicy: "default", policies: { default: { EMAIL: { action: "redact" }, PHONE: { action: "redact" }, API_KEY: { action: "redact" }, CARD: { action: "block" }, SSN: { action: "block" }, BANK_ACCOUNT: { action: "block" }, PASSPORT: { action: "redact" }, IP_ADDRESS: { action: "redact" }, MPESA: { action: "redact" } } } };
+function selectPolicy(context, settings) { const policies = (settings && settings.policies) || MASKIT_POLICY_DEFAULTS.policies; const ctx = context || {}; return (ctx.app && policies[ctx.app]) || (ctx.domain && policies[ctx.domain]) || policies.default || {}; }
+function getPolicyAction(policy, dataType) { const action = policy[dataType] && policy[dataType].action; return POLICY_ACTIONS.includes(action) ? action : "redact"; }
 const MASKIT_DEFAULTS = {
   enabled: true, scanPaste: true, scanCopy: false, scanTyping: true,
   reviewBeforeRedact: true, redactFormat: "stars", customRedactText: "[REDACTED]",

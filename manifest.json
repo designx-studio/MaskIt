@@ -5,7 +5,7 @@
   "description": "Protect sensitive information before it reaches AI tools. Local processing only.",
   "browser_specific_settings": {"gecko": {"id": "maskit@maskit.local", "strict_min_version": "109.0"}},
   "permissions": ["storage", "contextMenus"],
-  "host_permissions": ["https://chatgpt.com/*", "https://chat.openai.com/*", "https://claude.ai/*", "https://gemini.google.com/*", "https://copilot.microsoft.com/*", "https://*.cursor.com/*"],
+  "host_permissions": ["https://chatgpt.com/*", "https://chat.openai.com/*", "https://claude.ai/*", "https://gemini.google.com/*", "https://copilot.microsoft.com/*", "https://*.copilot.microsoft.com/*", "https://*.cursor.com/*"],
   "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'self'; style-src 'self'"},
   "background": {"service_worker": "background.js"},
   "icons": {"16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png"},
@@ -13,5 +13,5 @@
   "options_page": "options.html",
   "commands": {"toggle-protection": {"suggested_key": {"default": "Alt+Shift+M"}, "description": "Toggle Maskit protection"}, "pause-protection": {"suggested_key": {"default": "Alt+Shift+P"}, "description": "Pause Maskit temporarily"}},
   "context_menus": [{"id": "maskit-scan-selection", "title": "Maskit: Scan & Redact Selection", "contexts": ["selection"]}],
-  "content_scripts": [{"matches": ["https://chatgpt.com/*", "https://chat.openai.com/*", "https://claude.ai/*", "https://gemini.google.com/*", "https://copilot.microsoft.com/*", "https://*.cursor.com/*"], "js": ["settings.js", "browser-rules.js", "context-event.js", "detector.js", "sanitizer.js", "editors.js", "content.js"], "run_at": "document_start", "all_frames": false}]
+  "content_scripts": [{"matches": ["https://chatgpt.com/*", "https://chat.openai.com/*", "https://claude.ai/*", "https://gemini.google.com/*", "https://copilot.microsoft.com/*", "https://*.copilot.microsoft.com/*", "https://*.cursor.com/*"], "js": ["settings.js", "browser-rules.js", "context-event.js", "detector.js", "sanitizer.js", "editors.js", "content.js"], "run_at": "document_start", "all_frames": false}]
 }

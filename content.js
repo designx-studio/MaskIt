@@ -19,7 +19,7 @@ function _maskitInit() {
 
   function loadSettings() {
     try {
-      chrome.storage.local.get(MASKIT_DEFAULTS, (items) => {
+      chrome.storage.local.get({ ...MASKIT_DEFAULTS, policies: null }, (items) => {
         currentSettings = items;
         updateTrafficLight();
       });
@@ -231,11 +231,25 @@ function _maskitInit() {
 
   // ── Text insertion ────────────────────────────────────────────────────────
 
+  function setReactInputValue(element, value) {
+    const prototype = element.tagName === "TEXTAREA"
+      ? window.HTMLTextAreaElement.prototype
+      : window.HTMLInputElement.prototype;
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+    if (descriptor && descriptor.set) {
+      descriptor.set.call(element, value);
+    } else {
+      element.value = value;
+    }
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
   function insertIntoInput(element, text) {
     const start = element.selectionStart ?? element.value.length;
     const end = element.selectionEnd ?? element.value.length;
-    element.setRangeText(text, start, end, "end");
-    element.dispatchEvent(new Event("input", { bubbles: true }));
+    const newVal = element.value.slice(0, start) + text + element.value.slice(end);
+    setReactInputValue(element, newVal);
+    try { element.setSelectionRange(start + text.length, start + text.length); } catch {}
   }
 
   function insertIntoContentEditable(element, text) {
@@ -267,10 +281,9 @@ function _maskitInit() {
     isApplyingRedaction = true;
     try {
       if (element.tagName === "TEXTAREA" || element.tagName === "INPUT") {
-        element.value = text;
+        setReactInputValue(element, text);
         const end = text.length;
-        element.setSelectionRange(end, end);
-        element.dispatchEvent(new Event("input", { bubbles: true }));
+        try { element.setSelectionRange(end, end); } catch {}
         return;
       }
       if (isRichEditor(element)) {
@@ -441,12 +454,12 @@ function _maskitInit() {
 
   // ── Audit event generation (canonical schema only) ──────────────────────
 
-  function generateAuditEvents(findings, source) {
+  function generateAuditEvents(decisions, source) {
     const app = location.hostname || "unknown";
-    return findings.map(function (f) {
+    return decisions.map(function (d) {
       return createEventFromFinding({
-        finding: f,
-        decision: { action: "redact" },
+        finding: d.finding,
+        decision: d,
         context: {
           source: source || "browser",
           app: app,
@@ -460,22 +473,46 @@ function _maskitInit() {
 
   // ── Redaction ─────────────────────────────────────────────────────────────
 
-  function applyRedaction({ text, findings, target, source, replaceAll, riskScore }) {
-    const sanitized = sanitizeText(text, findings, currentSettings);
+  function applyRedaction({ text, findings, target, source, replaceAll }) {
+    const app = location.hostname || "unknown";
+    const policy = selectPolicy({ app }, currentSettings);
 
-    // Canonical audit events — no raw values
-    const auditEvents = generateAuditEvents(findings, source);
+    const decisions = findings.map(f => {
+      const typeBase = f.type.replace(/^CUSTOM:/, '');
+      const action = getPolicyAction(policy, typeBase);
+      return { finding: f, action };
+    });
+
+    const blocked = decisions.filter(d => d.action === "block").map(d => d.finding);
+    const redacted = decisions.filter(d => d.action === "redact").map(d => d.finding);
+
+    const auditEvents = generateAuditEvents(decisions, source);
     recordAuditEvents(auditEvents, source);
+
+    if (blocked.length > 0) {
+      recordStats(blocked, source);
+      showToast(`Blocked by policy: ${blocked.map(f => f.type).join(", ")}`);
+      return;
+    }
+
+    if (redacted.length === 0) {
+      if (source === "paste" || source === "beforeinput") {
+        insertSanitizedText(target, text);
+      }
+      return;
+    }
+
+    const sanitized = sanitizeText(text, redacted, currentSettings);
 
     const commit = () => {
       if (replaceAll && target) setElementText(target, sanitized);
       else if (target) insertSanitizedText(target, sanitized);
-      recordStats(findings, source);
-      showMaskitPopup(findings);
+      recordStats(redacted, source);
+      showMaskitPopup(redacted);
     };
 
     if (currentSettings.reviewBeforeRedact) {
-      showReviewDialog(findings, commit, () => { });
+      showReviewDialog(redacted, commit, () => { });
       return;
     }
     commit();
@@ -517,40 +554,90 @@ function _maskitInit() {
     if (!selection || isAlreadyRedacted(selection)) return;
     const findings = detectSensitiveData(selection, currentSettings);
     if (!findings.length) return;
+
+    const app = location.hostname || "unknown";
+    const policy = selectPolicy({ app }, currentSettings);
+    const decisions = findings.map(f => {
+      const typeBase = f.type.replace(/^CUSTOM:/, '');
+      const action = getPolicyAction(policy, typeBase);
+      return { finding: f, action };
+    });
+
+    const blocked = decisions.filter(d => d.action === "block").map(d => d.finding);
+    const redacted = decisions.filter(d => d.action === "redact").map(d => d.finding);
+
+    const auditEvents = generateAuditEvents(decisions, "copy");
+    recordAuditEvents(auditEvents, "copy");
+
+    if (blocked.length > 0) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      recordStats(blocked, "copy");
+      showToast(`Blocked by policy: ${blocked.map(f => f.type).join(", ")}`);
+      return;
+    }
+
+    if (redacted.length === 0) return;
+
     event.preventDefault();
     event.stopImmediatePropagation();
-    const sanitized = sanitizeText(selection, findings, currentSettings);
+    const sanitized = sanitizeText(selection, redacted, currentSettings);
 
     const commit = () => {
       event.clipboardData.setData("text/plain", sanitized);
-      recordStats(findings, "copy");
-      showMaskitPopup(findings);
+      recordStats(redacted, "copy");
+      showMaskitPopup(redacted);
     };
     if (currentSettings.reviewBeforeRedact) {
-      showReviewDialog(findings, commit, () => { });
+      showReviewDialog(redacted, commit, () => { });
       return;
     }
     commit();
   }
 
   function commitTypingRedaction(target, text, findings) {
-    const sanitized = sanitizeText(text, findings, currentSettings);
+    const app = location.hostname || "unknown";
+    const policy = selectPolicy({ app }, currentSettings);
+
+    const decisions = findings.map(f => {
+      const typeBase = f.type.replace(/^CUSTOM:/, '');
+      const action = getPolicyAction(policy, typeBase);
+      return { finding: f, action };
+    });
+
+    const blocked = decisions.filter(d => d.action === "block").map(d => d.finding);
+    const redacted = decisions.filter(d => d.action === "redact").map(d => d.finding);
+
+    const auditEvents = generateAuditEvents(decisions, "typing");
+    recordAuditEvents(auditEvents, "typing");
+
+    if (blocked.length > 0) {
+      recordStats(blocked, "typing");
+      setElementText(target, "");
+      showToast(`Blocked by policy: ${blocked.map(f => f.type).join(", ")}`);
+      return;
+    }
+
+    if (redacted.length === 0) {
+      return;
+    }
+
+    const sanitized = sanitizeText(text, redacted, currentSettings);
 
     const commit = () => {
       if (isRichEditor(target)) {
-        replaceFindingsInContentEditable(target, findings, currentSettings);
+        replaceFindingsInContentEditable(target, redacted, currentSettings);
       } else {
         setElementText(target, sanitized);
       }
-      recordStats(findings, "typing");
-      showMaskitPopup(findings);
+      recordStats(redacted, "typing");
+      showMaskitPopup(redacted);
     };
 
     if (currentSettings.reviewBeforeRedact) {
-      // Short grace delay: 400ms for rapid typing, then show dialog instantly
       clearTimeout(reviewDialogTimer);
       reviewDialogTimer = setTimeout(() => {
-        showReviewDialog(findings, commit, () => { });
+        showReviewDialog(redacted, commit, () => { });
       }, 400);
       return;
     }
@@ -646,9 +733,30 @@ function _maskitInit() {
       return;
     }
 
-    const sanitized = sanitizeText(proposed, findings, currentSettings);
-    if (sanitized === proposed) {
-      scheduleTypingScan(target, 0);
+    const app = location.hostname || "unknown";
+    const policy = selectPolicy({ app }, currentSettings);
+    const decisions = findings.map(f => {
+      const typeBase = f.type.replace(/^CUSTOM:/, '');
+      const action = getPolicyAction(policy, typeBase);
+      return { finding: f, action };
+    });
+
+    const blocked = decisions.filter(d => d.action === "block").map(d => d.finding);
+    const redacted = decisions.filter(d => d.action === "redact").map(d => d.finding);
+
+    if (blocked.length > 0) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      clearTypingScanSchedule();
+      recordStats(blocked, "typing");
+      const auditEvents = generateAuditEvents(decisions, "typing");
+      recordAuditEvents(auditEvents, "typing");
+      showToast(`Blocked by policy: ${blocked.map(f => f.type).join(", ")}`);
+      return;
+    }
+
+    if (redacted.length === 0) {
+      scheduleTypingScan(target, isRichEditor(target) ? 250 : 120);
       return;
     }
 
@@ -660,7 +768,7 @@ function _maskitInit() {
     event.preventDefault();
     event.stopImmediatePropagation();
     clearTypingScanSchedule();
-    commitTypingRedaction(target, proposed, findings);
+    applyRedaction({ text: proposed, findings, target, source: "typing", replaceAll: true });
   }
 
   function handleInput(event) {
@@ -1150,6 +1258,400 @@ function _maskitInit() {
     } catch { }
   }, { once: true });
 
+  // ── File upload protection ──────────────────────────────────────────────────
+
+  let isFileDialogOpen = false;
+
+  function handleFiles(files, event, target, originalEventName) {
+    if (event.__maskitBypass) return;
+
+    const filesArray = Array.from(files);
+    if (filesArray.length === 0) return;
+
+    // Unconditionally stop propagation to perform local scanning
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    const allowedExtensions = new Set([
+      "txt", "json", "yaml", "yml", "xml", "csv",
+      "js", "jsx", "ts", "tsx", "py", "java", "c", "cpp", "h", "hpp", "cs", "go", "rs",
+      "html", "css", "md", "sh", "bat", "ps1", "sql", "rb", "pl", "php"
+    ]);
+
+    function readFileAsText(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (err) => reject(err);
+        reader.readAsText(file);
+      });
+    }
+
+    const app = location.hostname || "unknown";
+    const scanPromises = filesArray.map(async (file) => {
+      const ext = file.name.split('.').pop().toLowerCase();
+      const isSupportedText = allowedExtensions.has(ext) || file.type.startsWith("text/") || file.type === "application/json";
+
+      if (!isSupportedText) {
+        return { file, findings: [], redactedContent: null };
+      }
+
+      try {
+        const content = await readFileAsText(file);
+        const findings = detectSensitiveData(content, currentSettings);
+        if (findings.length > 0) {
+          const redactedContent = sanitizeText(content, findings, currentSettings);
+          return { file, findings, redactedContent, content };
+        }
+        return { file, findings: [], redactedContent: null };
+      } catch (err) {
+        console.error("Maskit file read error:", err);
+        return { file, findings: [], redactedContent: null };
+      }
+    });
+
+    Promise.all(scanPromises).then((results) => {
+      const allFindings = [];
+      results.forEach(r => {
+        if (r.findings.length > 0) {
+          allFindings.push(...r.findings);
+        }
+      });
+
+      if (allFindings.length === 0) {
+        proceedWithUpload(target, originalEventName, filesArray);
+        return;
+      }
+
+      const policy = selectPolicy({ app }, currentSettings);
+      const decisions = allFindings.map(f => {
+        const typeBase = f.type.replace(/^CUSTOM:/, '');
+        const action = getPolicyAction(policy, typeBase);
+        return { finding: f, action };
+      });
+
+      const processedResults = results.map(r => {
+        if (r.findings.length === 0) return { ...r, status: "clean" };
+        const fileDecisions = r.findings.map(f => {
+          const typeBase = f.type.replace(/^CUSTOM:/, '');
+          const action = getPolicyAction(policy, typeBase);
+          return { finding: f, action };
+        });
+        const hasBlock = fileDecisions.some(d => d.action === "block");
+        const hasRedact = fileDecisions.some(d => d.action === "redact");
+        if (hasBlock) return { ...r, status: "block" };
+        if (hasRedact) return { ...r, status: "redact" };
+        return { ...r, status: "allow" };
+      });
+
+      const isFullyBlocked = processedResults.some(r => r.status === "block");
+
+      showFileWarningDialog({
+        results: processedResults,
+        isFullyBlocked,
+        onCancel: () => {
+          const events = [];
+          processedResults.forEach(r => {
+            if (r.findings.length > 0) {
+              events.push(...r.findings.map(f => {
+                const typeBase = f.type.replace(/^CUSTOM:/, '');
+                const action = getPolicyAction(policy, typeBase);
+                return createEventFromFinding({
+                  finding: f,
+                  decision: { action },
+                  context: {
+                    source: "browser_file",
+                    app,
+                    domain: app,
+                    policyName: currentSettings.activePolicy || "default",
+                    contentType: r.file.type || "text/plain",
+                    metadata: { filename: r.file.name, size: r.file.size }
+                  },
+                  settings: currentSettings
+                });
+              }));
+            }
+          });
+          recordAuditEvents(events, "browser_file");
+        },
+        onAllow: () => {
+          const events = [];
+          processedResults.forEach(r => {
+            if (r.findings.length > 0) {
+              events.push(...r.findings.map(f => {
+                return createEventFromFinding({
+                  finding: f,
+                  decision: { action: "allow" },
+                  context: {
+                    source: "browser_file",
+                    app,
+                    domain: app,
+                    policyName: currentSettings.activePolicy || "default",
+                    contentType: r.file.type || "text/plain",
+                    metadata: { filename: r.file.name, size: r.file.size }
+                  },
+                  settings: currentSettings
+                });
+              }));
+              recordStats(r.findings, "browser_file");
+            }
+          });
+          recordAuditEvents(events, "browser_file");
+          proceedWithUpload(target, originalEventName, filesArray);
+        },
+        onRedact: () => {
+          const events = [];
+          const finalFiles = processedResults.map(r => {
+            if (r.status === "redact" && r.redactedContent !== null) {
+              events.push(...r.findings.map(f => {
+                return createEventFromFinding({
+                  finding: f,
+                  decision: { action: "redact" },
+                  context: {
+                    source: "browser_file",
+                    app,
+                    domain: app,
+                    policyName: currentSettings.activePolicy || "default",
+                    contentType: r.file.type || "text/plain",
+                    metadata: { filename: r.file.name, size: r.file.size }
+                  },
+                  settings: currentSettings
+                });
+              }));
+              recordStats(r.findings, "browser_file");
+              return new File([r.redactedContent], r.file.name, { type: r.file.type });
+            } else {
+              if (r.findings.length > 0) {
+                events.push(...r.findings.map(f => {
+                  return createEventFromFinding({
+                    finding: f,
+                    decision: { action: "allow" },
+                    context: {
+                      source: "browser_file",
+                      app,
+                      domain: app,
+                      policyName: currentSettings.activePolicy || "default",
+                      contentType: r.file.type || "text/plain",
+                      metadata: { filename: r.file.name, size: r.file.size }
+                    },
+                    settings: currentSettings
+                  });
+                }));
+                recordStats(r.findings, "browser_file");
+              }
+              return r.file;
+            }
+          });
+          recordAuditEvents(events, "browser_file");
+          proceedWithUpload(target, originalEventName, finalFiles);
+        }
+      });
+    });
+  }
+
+  function proceedWithUpload(target, eventName, files) {
+    const dt = new DataTransfer();
+    files.forEach(f => dt.items.add(f));
+
+    if (eventName === "drop") {
+      const dropEvent = new DragEvent("drop", {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: dt
+      });
+      dropEvent.__maskitBypass = true;
+      target.dispatchEvent(dropEvent);
+    } else {
+      try {
+        target.files = dt.files;
+      } catch (e) {
+        // Fallback for readonly target.files
+      }
+      const changeEvent = new Event("change", {
+        bubbles: true,
+        cancelable: true
+      });
+      changeEvent.__maskitBypass = true;
+      target.dispatchEvent(changeEvent);
+    }
+  }
+
+  function handleChange(event) {
+    if (!isProtectionActive()) return;
+    const target = event.target;
+    if (target && target.tagName === "INPUT" && target.type === "file") {
+      const files = target.files;
+      if (files && files.length > 0) {
+        handleFiles(files, event, target, "change");
+      }
+    }
+  }
+
+  function handleDrop(event) {
+    if (!isProtectionActive()) return;
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      handleFiles(files, event, event.target, "drop");
+    }
+  }
+
+  function showFileWarningDialog({ results, isFullyBlocked, onCancel, onAllow, onRedact }) {
+    if (isFileDialogOpen) return;
+    isFileDialogOpen = true;
+
+    const overlay = document.createElement("div");
+    overlay.id = "maskit-file-overlay";
+    Object.assign(overlay.style, {
+      position: "fixed", inset: "0",
+      background: "rgba(10, 12, 16, 0.8)",
+      backdropFilter: "blur(8px)",
+      webkitBackdropFilter: "blur(8px)",
+      zIndex: "2147483647",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+      opacity: "0",
+      transition: "opacity 0.15s ease-out"
+    });
+
+    const card = document.createElement("div");
+    Object.assign(card.style, {
+      background: "linear-gradient(135deg, #1b202e 0%, #11141d 100%)",
+      color: "#e2e8f0",
+      borderRadius: "16px",
+      padding: "24px",
+      width: "min(460px, 92vw)",
+      border: "1px solid rgba(255, 255, 255, 0.08)",
+      boxShadow: "0 24px 64px rgba(0, 0, 0, 0.8)",
+      transform: "scale(0.92)",
+      transition: "transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)",
+      display: "flex",
+      flexDirection: "column",
+      gap: "18px"
+    });
+
+    const titleEl = document.createElement("div");
+    titleEl.style.cssText = "font-size: 17px; font-weight: 700; color: #f87171; display: flex; align-items: center; gap: 8px;";
+    titleEl.textContent = "⚠️ Sensitive Information Detected";
+
+    const descEl = document.createElement("div");
+    descEl.style.cssText = "font-size: 13.5px; color: #94a3b8; line-height: 1.5;";
+    descEl.textContent = isFullyBlocked
+      ? "MaskIt local scanning intercepted the file upload. Some files match organization block policies and cannot be uploaded."
+      : "MaskIt local scanning detected sensitive context in your files. Please select how you want to proceed before the files reach the AI system:";
+
+    const fileListContainer = document.createElement("div");
+    fileListContainer.style.cssText = "max-height: 160px; overflow-y: auto; background: rgba(0, 0, 0, 0.25); border-radius: 10px; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; gap: 8px;";
+
+    results.forEach(r => {
+      if (r.findings.length === 0) return;
+      const fileRow = document.createElement("div");
+      fileRow.style.cssText = "display: flex; flex-direction: column; gap: 4px; padding: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.03);";
+      
+      const fileHeader = document.createElement("div");
+      fileHeader.style.cssText = "display: flex; justify-content: space-between; font-size: 13px; font-weight: 600;";
+      
+      const fileNameSpan = document.createElement("span");
+      fileNameSpan.textContent = r.file.name;
+      fileNameSpan.style.color = "#cbd5e1";
+      
+      const fileStatusSpan = document.createElement("span");
+      if (r.status === "block") {
+        fileStatusSpan.textContent = "Blocked";
+        fileStatusSpan.style.color = "#f87171";
+      } else {
+        fileStatusSpan.textContent = "Sensitive";
+        fileStatusSpan.style.color = "#fbbf24";
+      }
+      
+      fileHeader.appendChild(fileNameSpan);
+      fileHeader.appendChild(fileStatusSpan);
+      
+      const findingsSpan = document.createElement("div");
+      findingsSpan.style.cssText = "font-size: 11px; color: #64748b; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;";
+      
+      const types = Array.from(new Set(r.findings.map(f => f.type)));
+      types.forEach(t => {
+        const badge = document.createElement("span");
+        badge.style.cssText = "background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; padding: 1px 5px; font-family: monospace;";
+        badge.textContent = t;
+        findingsSpan.appendChild(badge);
+      });
+      
+      fileRow.appendChild(fileHeader);
+      fileRow.appendChild(findingsSpan);
+      fileListContainer.appendChild(fileRow);
+    });
+
+    card.appendChild(titleEl);
+    card.appendChild(descEl);
+    card.appendChild(fileListContainer);
+
+    const actions = document.createElement("div");
+    actions.style.cssText = "display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-top: 8px;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Cancel Upload";
+    cancelBtn.style.cssText = "background: rgba(255, 255, 255, 0.08); color: #fff; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 10px 16px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: background 0.15s;";
+    cancelBtn.addEventListener("mouseover", () => cancelBtn.style.background = "rgba(255, 255, 255, 0.12)");
+    cancelBtn.addEventListener("mouseout", () => cancelBtn.style.background = "rgba(255, 255, 255, 0.08)");
+
+    const redactBtn = document.createElement("button");
+    redactBtn.textContent = "Redact & Upload";
+    redactBtn.style.cssText = "background: #00b894; color: #001; border: none; border-radius: 8px; padding: 10px 16px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: opacity 0.15s;";
+    redactBtn.addEventListener("mouseover", () => redactBtn.style.opacity = "0.9");
+    redactBtn.addEventListener("mouseout", () => redactBtn.style.opacity = "1");
+
+    const allowBtn = document.createElement("button");
+    allowBtn.textContent = "Allow Raw Upload";
+    allowBtn.style.cssText = "background: transparent; color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; padding: 10px 16px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: background 0.15s;";
+    allowBtn.addEventListener("mouseover", () => allowBtn.style.background = "rgba(239, 68, 68, 0.08)");
+    allowBtn.addEventListener("mouseout", () => allowBtn.style.background = "transparent");
+
+    function closeDialog() {
+      overlay.style.opacity = "0";
+      card.style.transform = "scale(0.92)";
+      setTimeout(() => {
+        overlay.remove();
+        isFileDialogOpen = false;
+      }, 150);
+    }
+
+    cancelBtn.addEventListener("click", () => {
+      closeDialog();
+      onCancel();
+    });
+
+    redactBtn.addEventListener("click", () => {
+      closeDialog();
+      onRedact();
+    });
+
+    allowBtn.addEventListener("click", () => {
+      closeDialog();
+      onAllow();
+    });
+
+    actions.appendChild(cancelBtn);
+    if (!isFullyBlocked) {
+      actions.appendChild(redactBtn);
+      actions.appendChild(allowBtn);
+    } else {
+      const blockMsg = document.createElement("span");
+      blockMsg.style.cssText = "color: #f87171; font-size: 12.5px; font-weight: 500; margin-right: auto;";
+      blockMsg.textContent = "Upload blocked by policy.";
+      actions.insertBefore(blockMsg, cancelBtn);
+    }
+
+    card.appendChild(actions);
+    overlay.appendChild(card);
+    (document.body || document.documentElement).appendChild(overlay);
+
+    requestAnimationFrame(() => {
+      overlay.style.opacity = "1";
+      card.style.transform = "scale(1)";
+    });
+  }
+
   // ── DOM event listeners ───────────────────────────────────────────────────
 
   document.addEventListener("paste", handlePaste, true);
@@ -1161,5 +1663,7 @@ function _maskitInit() {
   document.addEventListener("keyup", handleKeyup, true);
   document.addEventListener("compositionend", handleCompositionEnd, true);
   document.addEventListener("focusout", handleFocusOut, true);
+  document.addEventListener("change", handleChange, true);
+  document.addEventListener("drop", handleDrop, true);
 
 } // end _maskitInit

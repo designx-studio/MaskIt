@@ -1,7 +1,8 @@
 function getEditorProfile(element) {
   if (!element || element.tagName === "TEXTAREA" || element.tagName === "INPUT" || !element.isContentEditable) return "plain";
   const host = location.hostname;
-  if (["chatgpt.com", "chat.openai.com", "claude.ai", "gemini.google.com", "copilot.microsoft.com"].includes(host) || host.endsWith(".cursor.com")) return "rich";
+  const isCopilot = host === "copilot.microsoft.com" || host.endsWith(".copilot.microsoft.com");
+  if (["chatgpt.com", "chat.openai.com", "claude.ai", "gemini.google.com"].includes(host) || isCopilot || host.endsWith(".cursor.com")) return "rich";
   if (element.closest('.ProseMirror, [contenteditable="true"][role="textbox"]')) return "rich";
   return "contenteditable";
 }
