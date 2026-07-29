@@ -8,6 +8,7 @@
     "test:docs": "node scripts/verify-doc-consistency.js",
     "test:regex": "node scripts/validate-regex-safety.js",
     "test:deployment": "node tests/deployment/msi.test.js",
+    "test:windows-runtime": "node scripts/validate-windows-runtime.js",
     "test:browser-surface": "node scripts/validate-browser-surface.js",
     "test:stabilization": "node scripts/validate-stabilization.js",
     "test:canonical-events": "node scripts/verify-canonical-events.js",
