@@ -1,537 +1,375 @@
-```markdown
 # MaskIt Product Roadmap
 
 ## Vision
 
-MaskIt is the local-first AI Context Security Platform that protects sensitive
-information before it reaches AI systems, coding assistants, autonomous agents,
-and AI workflows.
+MaskIt is a local-first AI Context Security Platform that protects sensitive information before it reaches AI systems, coding assistants, autonomous agents, and AI workflows.
 
-Detection, classification, policy enforcement, and evidence generation happen on
-the endpoint. Cloud services exist only for management and governance. Raw
-prompts, clipboard contents, secrets, and private files never leave the device.
+MaskIt is not a replacement for Data Loss Prevention (DLP).
 
-The goal is not to replace Data Loss Prevention (DLP).
+MaskIt exists to become the trusted security layer between humans and AI.
 
-The goal is to become the trusted security layer between users and AI.
+The future of work will involve:
+
+- AI assistants
+- Coding agents
+- Autonomous workflows
+- MCP tools
+- AI-powered applications
+- Human and machine collaboration
+
+Traditional security controls were designed around networks, applications, and files.
+
+AI introduces a new security boundary:
+
+**Context.**
+
+MaskIt protects the movement of sensitive context wherever it happens.
 
 ---
 
-## Core Mental Model
+# Core Security Model
 
-Every MaskIt capability plugs into one pipeline:
+Every MaskIt capability follows the same pipeline:
 
-```
-Human
-  ↓
-Application
-  ↓
-Context
-  ↓
-MaskIt Decision Engine
-  ↓
-Allow / Warn / Redact / Block
-  ↓
-Evidence
-  ↓
-Enterprise Management (optional)
+Human ↓ Application ↓ Context ↓ MaskIt Decision Engine ↓ Allow / Warn / Redact / Block ↓ Evidence ↓ Enterprise Management (optional)
 
-```
+All integrations use:
 
-Browser extension, Windows agent, IDE integrations, Git hooks, CI enforcement,
-MCP server, and AI agent controls are all entry points into the same engine with
-the same rules, the same policy language, and the same evidence format.
+- One detection engine
+- One policy language
+- One evidence model
+- One security decision process
 
 MaskIt secures context, not applications.
 
 ---
 
-## Guiding Principles
+# Product Principles
 
-### Always
+## Always
 
-- Local first
-- Explain every finding
-- Never upload raw customer data
-- Open and verifiable
+- Local-first enforcement
+- Explainable findings
+- No raw customer data uploaded
+- Open and verifiable security model
 - Simple deployment
 - Honest security claims
-- One engine, one evidence model, one policy language across every surface
+- Privacy-preserving evidence
+- Consistent behaviour across all integrations
 
-### Never
+## Never
 
-- Generic DLP replacement
-- Secure browser replacement
-- AI model hosting
-- Prompt proxy
+MaskIt will not become:
+
+- A generic DLP replacement
+- A secure browser
+- An AI model host
+- A prompt proxy
 - Surveillance software
-- Keylogging
-- Kernel drivers or file system filter drivers
-- False compliance claims
+- A keylogger
+- A kernel-level security product
+- A compliance certification provider
 
 ---
 
-## Current State (v2.4.x)
+# Current Product State
 
-### Completed
+## Version
 
-- Browser extension (Chrome, Edge, Firefox, Opera)
-- Shared detection engine across all adapters
+v2.4.x
+
+## Completed
+
+- Browser extension
+- Chrome, Edge, Firefox, Opera support
+- Shared detection engine
 - Browser, CLI, MCP, and Windows parity
-- Canonical audit events (schema 1.0)
-- Local audit logging with hash-chained evidence
-- Shared rule engine from maskit-core
+- Canonical audit event schema
+- Local audit logging
+- Hash-chained evidence
+- Secret detection
+- Personal information detection
+- Financial information detection
+- Redaction engine
+- Allow, redact, block policies
 - Windows clipboard agent
-- CLI
-- MCP server
-- Pilot documentation and evidence package
-- Release automation with checksums
-
-### Current gaps
-
-- Microsoft Copilot support incomplete (textarea detection failing)
-- No file upload scanning
-- Windows agent requires manual ZIP extraction — no MSI
-- Browser extension requires Load Unpacked — no Web Store listing
-- No central policy management
-- No device visibility across an organisation
+- CLI scanner
+- MCP scanner
+- Pilot documentation package
+- Evidence package
+- Release automation
+- Checksums
 
 ---
 
-## Architecture
+# Current Gaps
 
-### Layer 1 — Browser Extension
+## Product
 
-**Purpose:** Protect browser-based AI interactions
+- Microsoft Copilot browser support incomplete
+- No browser file upload scanning
+- No IDE integrations
+- No enterprise deployment package
+- No central policy management
+- No device visibility
 
-**Coverage:**
+## Deployment
+
+- Windows agent requires manual installation
+- Browser extension requires developer mode installation
+- No MSI package
+- No Intune deployment
+- No auto-update channel
+
+---
+
+# Architecture
+
+## Layer 1: Browser Extension
+
+### Purpose
+
+Protect browser-based AI interactions.
+
+### Coverage
+
 - ChatGPT
 - Claude
 - Gemini
 - Perplexity
 - Microsoft Copilot Web
-- Any future AI website
+- Future AI websites
 
-**Functions:**
+### Functions
+
 - Typing detection
 - Paste interception
 - File upload scanning
+- Local policy enforcement
+- User warnings
+- Evidence generation
 
-**Status:** Mostly built. Copilot textarea fix and file upload scanning
-remaining.
+### Status
 
----
+Mostly complete.
 
-### Layer 2 — Windows Agent
+Remaining:
 
-**Purpose:** Protect Windows regardless of browser or application
-
-**Coverage:**
-- Clipboard from any application
-- Copilot in all Microsoft surfaces (Teams, Outlook, Word, Edge sidebar,
-  taskbar)
-- Any desktop application that uses the clipboard
-
-**Functions:**
-- Clipboard interception and redaction
-- Local audit logging
-- Policy enforcement
-- User notifications
-
-**Status:** Built. Needs MSI installer, Intune deployment, auto-update, and
-health monitoring.
-
-**Note:** The Windows agent is the correct long-term answer for Microsoft
-Copilot. Microsoft will keep changing their web UI but the clipboard is always
-the clipboard.
+- Copilot compatibility improvements
+- File upload scanning
 
 ---
 
-### Layer 3 — IDE Integrations
+# Layer 2: Windows Agent
 
-**Purpose:** Catch secrets at the point of creation, before they reach Git,
-clipboard, or AI
+## Purpose
 
-**Coverage:**
+Protect AI usage across Windows applications.
+
+The Windows agent is the long-term answer for Microsoft-heavy environments because it does not depend on changing website interfaces.
+
+### Coverage
+
+- Clipboard activity
+- Teams
+- Outlook
+- Word
+- Edge sidebar
+- Desktop applications
+- Microsoft Copilot surfaces
+
+### Functions
+
+- Clipboard inspection
+- Redaction
+- Blocking
+- Local policy enforcement
+- Notifications
+- Audit generation
+
+### Future capabilities
+
+- Health reporting
+- RMM integration
+- Enterprise deployment
+
+### Status
+
+Built.
+
+Remaining:
+
+- MSI installer
+- Intune support
+- Code signing
+- Health endpoint
+
+---
+
+# Layer 3: IDE Security
+
+## Purpose
+
+Protect developers where sensitive information is created.
+
+IDE protection is the highest-value developer security layer because it detects secrets before they reach:
+
+- Clipboard
+- Git repositories
+- AI assistants
+- External systems
+
+## Supported IDEs
+
+Initial:
+
 - Visual Studio Code
+
+Future:
+
 - Visual Studio
-- JetBrains (IntelliJ, Rider, WebStorm, PyCharm, GoLand)
+- JetBrains IDEs
 
-**Why IDE over file system watching:**
-The IDE already knows the active file, selected code, AI chat request, Copilot
-context, and file contents. Detection inside the IDE is far more accurate than
-inferring intent from OS file events. File system filter drivers and kernel
-approaches are complex, expensive to maintain, and put MaskIt in competition
-with endpoint security vendors. IDE integrations achieve better results without
-that complexity.
+Including:
 
-**Functions:**
+- IntelliJ
+- Rider
+- WebStorm
+- PyCharm
+- GoLand
+
+## Features
+
 - Hardcoded secret detection
-- API key and credential scanning
-- Confidence scores and explanations
+- API key detection
+- Credential detection
+- Confidence scoring
+- Security explanations
 - Fix suggestions
-- Copilot and AI assistant context scanning
+- AI assistant context scanning
 
-**Status:** Not built. Highest value for developer workflows.
+## Why IDE instead of file system monitoring
+
+MaskIt will not build kernel drivers or file system filter drivers.
+
+The IDE already knows:
+
+- Active files
+- Selected code
+- User intent
+- AI requests
+- Project context
+
+IDE integrations provide better accuracy without becoming an endpoint security vendor.
 
 ---
 
-### Layer 4 — Git and CI
+# Layer 4: Git and CI Security
 
-**Purpose:** Prevent secrets before they leave the development environment
+## Purpose
 
-**Functions:**
+Prevent sensitive information from entering development pipelines.
+
+## Features
+
 - Pre-commit scanning
 - Repository scanning
 - Pull request scanning
-- CI pipeline enforcement
+- CI enforcement
+- Secret detection
+- Developer feedback
 
-**Status:** GitHub Action exists. Pre-commit hook and CI integration remaining.
+## Status
+
+GitHub Action exists.
+
+Future:
+
+- Pre-commit hooks
+- Multi-platform CI support
 
 ---
 
-### Layer 5 — MCP and AI Agents
+# Layer 5: MCP and AI Agent Security
 
-**Purpose:** Protect autonomous AI workflows and agent-to-agent context
+## Purpose
 
-**Coverage:**
-- MCP servers
+Protect autonomous AI workflows.
+
+AI agents introduce new risks:
+
+- Tool access
+- File access
+- Repository access
+- Autonomous decisions
+
+## Features
+
+- MCP gateway
+- Tool permissions
+- Context filtering
+- Agent permissions
+- Approval workflows
+- Agent activity audit trail
+
+## Supported future targets
+
 - Claude Code
 - GitHub Copilot
 - Cursor
 - Windsurf
 - OpenCode
 - Cline
-- Future AI agent workflows
 
-**Functions:**
-- Tool permission control
-- Context filtering before tool calls
-- Agent permission boundaries
-- Context passed between agents
-- Approval workflows for high-risk actions
-- Audit trail for autonomous actions
+## Status
 
-**Status:** MCP server exists as a scanner. Gateway enforcement not yet built.
-This is the long-term differentiator.
+MCP scanner exists.
+
+Gateway enforcement planned.
 
 ---
 
-## Enterprise Deployment
-
-### Requirements for enterprise adoption
-
-- Signed MSI installer for silent deployment
-- Intune and SCCM compatible packaging
-- Group Policy deployable browser extension
-- Auto-update mechanism
-- Health monitoring and heartbeat
-- All binaries properly code-signed
-
-### Positioning alongside existing security platforms
-
-MaskIt extends enterprise AI security into local AI interactions and third-party
-AI tools while complementing existing security platforms such as Microsoft
-Purview, CrowdStrike, Palo Alto, Broadcom, and Trellix.
-
-Existing security platforms protect corporate infrastructure.
-MaskIt protects AI interactions wherever they occur.
-Together they provide broader coverage.
-
-**What existing platforms cover well:**
-- Traditional file sharing controls
-- Email DLP
-- SharePoint and OneDrive
-- Teams message scanning
-- Microsoft AI surfaces
-
-**Where MaskIt adds coverage:**
-- ChatGPT and third-party AI websites
-- Claude, Perplexity, and other non-Microsoft AI
-- AI coding tools outside the Microsoft ecosystem
-- Consumer AI tools that bypass the corporate perimeter
-- Shadow AI that IT cannot see
-- Browser-based AI on any device
-
----
-
-## Roadmap
-
-### Immediate (30 to 60 days)
-
-**1. Complete Microsoft Copilot support**
-
-Copilot is becoming the default AI assistant inside Microsoft 365. Failure to
-support it is a blocker for enterprise conversations.
-
-- Fix textarea detection in content.js and editors.js
-- Add m365.cloud.microsoft to manifest host permissions
-- Improve DOM resilience across Microsoft AI hostnames
-- Test across Copilot Web, M365 Copilot app, and Edge sidebar
-
-**2. Browser file upload scanning**
-
-The highest remaining security gap. Files contain far more sensitive data than
-typed prompts and users are unaware of what is inside files they upload.
-
-Supported file types:
-- CSV, Excel, Word, PDF
-- Text, source code, configuration files
-- .env, JSON, YAML, XML
-
-Flow:
-```
-
-User selects file
-  ↓
-Local scan in browser before upload
-  ↓
-Findings detected
-  ↓
-Review dialog shown to user
-  ↓
-Allow / Redact / Block
-  ↓
-Upload proceeds or is prevented
-```
-
-No cloud required. Everything local.
-
-**3. Windows agent enterprise deployment**
-
-Replace portable ZIP with:
-- Signed MSI installer
-- Silent installation support
-- Intune deployment package
-- Group Policy compatible
-- Auto-update mechanism
-
----
-
-### Phase 2 — Developer Security (3 to 6 months)
-
-**VS Code Extension**
-
-First IDE integration. Catches secrets at the point of creation.
-
-- Hardcoded secret detection in active files
-- API key and credential scanning
-- Explanations and confidence scores
-- Fix suggestions
-- AI chat context scanning
-- Copilot request scanning
-
-**Chrome Web Store and Edge Add-ons listing**
-
-Removes Load Unpacked barrier for enterprise. Enables force-install via Group
-Policy and Intune.
-
-**Git pre-commit hook**
-
-- Local secret scanning before commit
-- Blocks commits containing credentials
-- Explanation of what was found and why
-
-**JetBrains plugin**
-
-After VS Code proves successful. Covers IntelliJ, Rider, WebStorm, PyCharm,
-GoLand.
-
----
-
-### Phase 3 — Lightweight Admin Console (6 to 12 months)
-
-Not a SIEM. Not a replacement for Microsoft Defender. A focused answer to one
-question: what is happening across our devices?
-
-**Device visibility:**
-- Online and offline status
-- MaskIt version
-- Policy version
-- Last heartbeat
-
-**Policy management:**
-- Create and version policies
-- Assign to devices or groups
-- Rollback capability
-- Signed policy bundles that enforce locally even if cloud is unavailable
-
-**Activity summary:**
-- Findings today
-- Blocks, redactions, warnings
-- Risk categories (API keys, PII, financial, credentials)
-
-**Principles:**
-- Never raw prompts
-- Never clipboard contents
-- Never customer files
-- Aggregated metadata only
-
-**SIEM export** for organisations that need audit data in existing security
-platforms.
-
----
-
-### Phase 4 — AI Workflow Protection (12 to 18 months)
-
-Expand the MaskIt decision engine into autonomous AI workflows.
-
-**MCP Security Gateway:**
-- Tool allowlists and denylists
-- Context filtering before tool calls
-- Approval workflows for high-risk actions
-- Trust scoring for MCP servers
-- Response scanning before content returns to client
-
-**AI Agent Controls:**
-- Agent identity and permission boundaries
-- Repository and file access scope
-- Command execution controls
-- Agent activity timeline
-- Context passed between agents
-
----
-
-### Phase 5 — Enterprise Platform
-
-Only after significant adoption.
-
-- Organisation management
-- Device enrolment at scale
-- Fleet management
-- SSO integration
-- Full SIEM export
-- Compliance reporting
-- Role-based access control
-- Mandatory policy enforcement
-
----
-
-### Phase 6 — MSP Platform
-
-Only after enterprise succeeds.
-
-- Multi-tenant architecture
-- Customer isolation
-- Per-customer policies
-- Fleet management per customer
-- Health monitoring
-- Licensing management
-- Remote deployment
-
----
-
-## Known Limitations
-
-The following scenarios are not covered and are documented honestly:
-
-- Typing directly into native desktop apps (Teams, Outlook Copilot pane) where
-  content is not routed through clipboard
-- Terminal input to Claude Code and CLI tools
-- Voice input to AI assistants
-- AI tools that read screen content such as Copilot+ Recall
-- Browsers without the MaskIt extension installed
-
-Catching terminal typing requires OS keyboard hooks. Catching voice requires
-audio capture. Catching screen readers requires screen capture. All three cross
-into surveillance territory and will not be built. The clipboard agent and
-browser extension together cover the vast majority of real-world leak scenarios
-without requiring invasive OS access.
-
----
-
-## Definition of Success
-
-MaskIt succeeds when:
-
-- Developers install it in minutes without IT involvement
-- Security teams trust the evidence it produces
-- Organisations control AI security policy without seeing private data
-- AI tools become safer without blocking everyday work
-- The same detection engine protects browsers, IDEs, terminals, agents, and
-  workflows
-- Enterprise security teams see MaskIt as extending their existing investment,
-  not replacing it
-
----
-
-## Long-Term Vision
-
-```
-
-Browser
-  ↓
-Clipboard
-  ↓
-Files
-  ↓
-IDE
-  ↓
-Git
-  ↓
-CI/CD
-  ↓
-MCP
-  ↓
-AI Agents
-  ↓
-Enterprise Governance
-```
-
-One policy engine. One evidence model. One detection engine. Everywhere.
-# Enterprise Integration Layer
+# Enterprise Integration Strategy
 
 ## Philosophy
 
-MaskIt should not become another security dashboard that administrators must monitor.
+MaskIt should not become another dashboard administrators must monitor.
 
-Enterprise teams already operate through:
+Security teams already use:
 
-- Endpoint management platforms
-- RMM tools
-- SIEM platforms
+- Microsoft Intune
+- Microsoft Sentinel
+- Splunk
+- Elastic
+- RMM platforms
 - Identity providers
-- Alerting systems
+- Alerting platforms
 
 MaskIt should integrate into existing workflows.
 
-The goal:
+The principle:
 
-> MaskIt provides local enforcement and security evidence while existing enterprise platforms provide management, visibility, and response.
-
-MaskIt should never require raw prompts, secrets, clipboard contents, or private files to leave the endpoint.
+> MaskIt provides local enforcement and security evidence while existing enterprise systems provide management, monitoring, and response.
 
 ---
 
-# Phase 1.5: Enterprise Operability Foundation
+# Enterprise Operability Foundation
 
-## Timeline
-
-3 to 6 months
-
-## Goal
-
-Make MaskIt deployable, observable, and manageable without requiring a dedicated MaskIt console.
-
----
-
-## Windows Agent Health Interface
-
-Build a lightweight local health endpoint.
+## Windows Health Interface
 
 Purpose:
 
-Allow existing IT management tools to monitor MaskIt without custom integrations.
+Allow existing IT tools to monitor MaskIt.
 
 Expose:
 
 - Agent status
 - Version
 - Policy version
-- Last synchronization time
+- Last heartbeat
 - Rules loaded
-- Service uptime
 - Detection statistics
+- Service uptime
 
 Example:
 
@@ -545,25 +383,438 @@ Example:
   "rulesLoaded": 45
 }
 
-                 Enterprise Systems
+Compatible with:
 
-        SIEM       RMM       Identity
-          |         |           |
+NinjaOne
 
-          -----------------------
-                    |
-              MaskIt Agent
-                    |
-          -----------------------
+ConnectWise
 
- Browser     IDE     CLI     MCP
-    |          |      |       |
+Datto
 
-        Shared Context Engine
+Kaseya
 
-              |
-        Policy Engine
+Atera
 
-              |
-        Evidence Engine
-```
+N-able
+
+
+
+---
+
+SIEM Integration
+
+MaskIt should export security evidence into existing security platforms.
+
+Support:
+
+JSON events
+
+Common Event Format (CEF)
+
+Syslog
+
+
+Supported:
+
+Microsoft Sentinel
+
+Splunk
+
+Elastic Security
+
+IBM QRadar
+
+
+Events include:
+
+Device
+
+User
+
+Application
+
+Finding category
+
+Severity
+
+Action taken
+
+Policy applied
+
+Timestamp
+
+
+Events never include:
+
+Prompts
+
+Secrets
+
+Clipboard contents
+
+Files
+
+Source code
+
+
+
+---
+
+Security Webhooks
+
+Allow MaskIt events to trigger existing workflows.
+
+Examples:
+
+Microsoft Teams
+
+Slack
+
+PagerDuty
+
+Opsgenie
+
+
+Example:
+
+{
+ "event":"critical_finding",
+ "device":"DESKTOP-001",
+ "findingType":"API_KEY",
+ "severity":"critical",
+ "action":"blocked"
+}
+
+
+---
+
+Roadmap
+
+Phase 1: Production Foundation
+
+Timeline
+
+0 to 3 months
+
+Goal
+
+Make MaskIt reliable, installable, and ready for design partners.
+
+Priorities
+
+Microsoft Copilot Support
+
+Fix textarea detection
+
+Improve Microsoft AI host handling
+
+Support M365 Copilot domains
+
+Test Edge sidebar scenarios
+
+
+Browser File Upload Protection
+
+Protect:
+
+CSV files
+
+Excel files
+
+Word documents
+
+PDFs
+
+Source code
+
+Configuration files
+
+Environment files
+
+
+Flow:
+
+User selects file
+       ↓
+Local scan
+       ↓
+Detection
+       ↓
+Policy decision
+       ↓
+Allow / Redact / Block
+       ↓
+Upload continues or stops
+
+Windows Enterprise Deployment
+
+Build:
+
+Signed MSI installer
+
+Silent installation
+
+Intune package
+
+Group Policy support
+
+Auto-update
+
+
+
+---
+
+Phase 2: Developer Security Platform
+
+Timeline
+
+3 to 6 months
+
+Goal
+
+Protect developers at the point where sensitive information is created.
+
+Features:
+
+VS Code extension
+
+Git pre-commit protection
+
+Repository scanning
+
+CI security checks
+
+Detection explanations
+
+False positive feedback loop
+
+
+
+---
+
+Phase 3: Enterprise Management and Governance
+
+Timeline
+
+6 to 12 months
+
+Goal
+
+Provide optional enterprise governance without collecting private data.
+
+Features:
+
+Device Management
+
+Device inventory
+
+Version tracking
+
+Health status
+
+Policy status
+
+
+Policy Management
+
+Central policy creation
+
+Policy approval
+
+Signed policy bundles
+
+Rollback
+
+Group assignment
+
+
+Reporting
+
+Provide:
+
+Detection summaries
+
+Risk categories
+
+Security posture
+
+Evidence reports
+
+
+Never store:
+
+Prompts
+
+Secrets
+
+Clipboard history
+
+Private files
+
+
+
+---
+
+Phase 4: AI Workflow Protection
+
+Timeline
+
+12 to 18 months
+
+Goal
+
+Secure autonomous AI systems.
+
+Features:
+
+MCP Gateway
+
+Tool permissions
+
+Resource permissions
+
+Context filtering
+
+Approval workflows
+
+Trust scoring
+
+
+Agent Security
+
+Agent identity
+
+Permission boundaries
+
+Repository controls
+
+Command execution controls
+
+Agent activity timeline
+
+
+
+---
+
+Phase 5: Enterprise Platform
+
+After product adoption.
+
+Features:
+
+Organisation management
+
+Device enrolment
+
+SSO
+
+Role-based access
+
+Compliance reporting
+
+SIEM integrations
+
+Mandatory policies
+
+
+
+---
+
+Phase 6: MSP Platform
+
+After enterprise success.
+
+Features:
+
+Multi-tenant management
+
+Customer isolation
+
+Per-client policies
+
+Fleet reporting
+
+RMM integrations
+
+Licensing management
+
+
+Integrations:
+
+ConnectWise
+
+Kaseya
+
+Autotask
+
+HaloPSA
+
+
+
+---
+
+Known Limitations
+
+MaskIt will not monitor:
+
+Native application typing without clipboard interaction
+
+Terminal keyboard input
+
+Voice input
+
+Screen capture
+
+AI systems outside supported integrations
+
+
+These require invasive monitoring techniques that conflict with MaskIt's privacy principles.
+
+
+---
+
+Definition of Success
+
+MaskIt succeeds when:
+
+Developers install it easily
+
+Security teams trust the evidence
+
+Organisations secure AI usage without surveillance
+
+Existing security investments are extended
+
+AI adoption becomes safer
+
+One policy protects browsers, IDEs, Git, CI, and agents
+
+
+
+---
+
+Long-Term Vision
+
+Browser
+ ↓
+Clipboard
+ ↓
+IDE
+ ↓
+Git
+ ↓
+CI/CD
+ ↓
+MCP
+ ↓
+AI Agents
+ ↓
+Enterprise Governance
+
+One detection engine.
+
+One policy language.
+
+One evidence model.
+
+Everywhere AI work happens.
