@@ -1,36 +1,14 @@
-import * as vscode from 'vscode';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import * as fs from 'fs';
+import * as path from 'path';
 
 export async function setupGitHooks(workspaceRoot: string): Promise<void> {
-    const gitHookPath = `${workspaceRoot}/.git/hooks/pre-commit`;
-    const fs = require('fs');
-
-    const hookScript = `#!/bin/sh
-# MaskIt Pre-Commit Hook
-echo "Scanning staged files with MaskIt..."
-STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
-
-if [ -z "$STAGED_FILES" ]; then
-    exit 0
-fi
-
-# In a real environment, this would call the CLI executable
-# node node_modules/maskit-cli/bin/scan.js $STAGED_FILES
-# For phase 3 we are laying the foundation
-
-echo "MaskIt scan complete."
-exit 0
-`;
-
-    try {
-        if (fs.existsSync(`${workspaceRoot}/.git`)) {
-            fs.writeFileSync(gitHookPath, hookScript, { mode: 0o755 });
-            console.log('MaskIt pre-commit hook installed successfully.');
-        }
-    } catch (e) {
-        console.error('Failed to install MaskIt pre-commit hook', e);
-    }
+  const hooksDir = path.join(workspaceRoot, '.git', 'hooks');
+  const hookPath = path.join(hooksDir, 'pre-commit');
+  if (!fs.existsSync(hooksDir)) return;
+  const marker = '# MaskIt managed pre-commit hook';
+  if (fs.existsSync(hookPath) && fs.readFileSync(hookPath, 'utf8').includes(marker)) return;
+  if (fs.existsSync(hookPath)) fs.copyFileSync(hookPath, `${hookPath}.maskit-original`);
+  const repoRoot = workspaceRoot.replace(/\\/g, '/');
+  const script = `#!/bin/sh\n${marker}\nset -eu\nROOT="${repoRoot}"\nFILES=$(git -C "$ROOT" diff --cached --name-only --diff-filter=ACMR)\n[ -z "$FILES" ] && exit 0\nnode - "$ROOT" <<'NODE'\nconst cp = require('child_process');\nconst fs = require('fs');\nconst path = require('path');\nconst root = process.argv[2];\nconst engine = require(path.join(root, 'engine'));\nconst files = cp.execFileSync('git', ['-C', root, 'diff', '--cached', '--name-only', '--diff-filter=ACMR'], { encoding: 'utf8' }).trim().split(/\\r?\\n/).filter(Boolean);\nlet blocked = 0;\nfor (const file of files) { const text = cp.execFileSync('git', ['-C', root, 'show', ':0:' + file], { encoding: 'utf8' }); const result = engine.evaluatePolicy(text, { _context: { source: 'git', application: 'pre-commit', file } }); const blocks = result.policyDecisions.filter(d => d.action === 'block'); if (blocks.length) { blocked += blocks.length; console.error('MaskIt blocked ' + file + ': ' + blocks.map(d => d.finding.ruleName).join(', ')); } }\nprocess.exit(blocked ? 1 : 0);\nNODE\nSTATUS=$?\nif [ -x "${hookPath}.maskit-original" ]; then "${hookPath}.maskit-original" || exit $?; fi\nexit $STATUS\n`;
+  fs.writeFileSync(hookPath, script, { mode: 0o755 });
 }
