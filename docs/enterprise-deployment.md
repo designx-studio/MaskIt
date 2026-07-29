@@ -1,39 +1,19 @@
-# MaskIt Enterprise Deployment Guide
+# MaskIt Enterprise Deployment
 
-## Overview
+## Current status
+MaskIt supports assisted pilot deployment from GitHub Release assets. It does not currently provide a supported Intune policy channel, enterprise browser force-install package, central policy service, or signed fleet-management control plane.
 
-MaskIt can be deployed across an enterprise using a unified policy file. This guide covers deploying the Windows agent and browser extension via MDM (e.g., Microsoft Intune).
+## Supported pilot workflow
+- Browser: download the release ZIP and load it as an unpacked extension on approved hosts.
+- Windows: use the documented portable/agent package where available; Windows MSI validation requires a Windows VM.
+- MCP and CLI: install the local Node package and configure the client with an absolute executable path.
+- Policies: use the adapter-supported local policy mechanisms. The Phase 3 Node `PolicyManager` reads `maskit-core/policy.json`, validates `allow`, `redact`, and `block`, falls back to a strict embedded default, and hot-reloads local changes.
 
-## Unified Policy
+## Not yet supported
+- Intune or MDM deployment claims
+- Policy URLs or remote policy distribution
+- Organization-wide policy push or RBAC
+- Signed policy bundles, auto-update, or central inventory
+- Guaranteed MSI upgrade, service recovery, and uninstall behavior without Windows integration testing
 
-MaskIt uses a central `policy.json` file. All components (Windows Agent, Browser Extension, VS Code Extension, MCP) read from this policy if configured.
-
-### Example Policy
-```json
-{
-  "version": "1.0",
-  "mode": "strict",
-  "actions": {
-    "aws_keys": "block",
-    "github_tokens": "block",
-    "customer_data": "redact",
-    "generic_secret": "redact"
-  }
-}
-```
-
-## Deploying the Windows Agent (MSI)
-
-The Windows agent is packaged as an MSI, supporting silent installation.
-
-```cmd
-msiexec /i MaskIt.Agent.msi /qn POLICY_URL="https://internal.corp/maskit-policy.json"
-```
-
-## Deploying the Browser Extension
-
-Deploy via Chrome Enterprise or Edge management policies. Configure the extension to read the unified policy from a managed local path or URL.
-
-## Managing Updates
-
-Deploy new MSI versions over existing installations. The installer is configured to upgrade the service while preserving existing configuration files in `AppData`.
+Do not market these capabilities as available until the corresponding adapter, installer, and CI validation work exists. See `docs/enterprise-pilot-readiness.md` for the current pilot boundary.
