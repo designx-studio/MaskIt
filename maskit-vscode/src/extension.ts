@@ -10,13 +10,12 @@ import { setupGitHooks } from './git-hooks';
 export function activate(context: vscode.ExtensionContext) {
   const statusBar = new MaskItStatusBar();
   context.subscriptions.push({ dispose: () => statusBar.dispose() });
-  registerDiagnostics(context);
+  registerDiagnostics(context, count => statusBar.update(count));
   const extractSecret = async (uri: vscode.Uri, range: vscode.Range, languageId: string) => {
     const variable = await vscode.window.showInputBox({ prompt: 'Environment variable name', value: 'API_KEY', validateInput: v => /^[A-Z][A-Z0-9_]*$/.test(v) ? undefined : 'Use an uppercase environment variable name.' });
     if (!variable) return;
     const replacement = languageId === 'python' ? `os.environ["${variable}"]` : `process.env.${variable}`;
     const edit = new vscode.WorkspaceEdit(); edit.replace(uri, range, replacement); await vscode.workspace.applyEdit(edit);
-    vscode.window.showInformationMessage(`MaskIt replaced the finding with ${variable}.`);
   };
   const addIgnore = async (uri: vscode.Uri, range: vscode.Range) => {
     const reason = await vscode.window.showInputBox({ prompt: 'Reason for this exception', validateInput: v => v.trim() ? undefined : 'A reason is required.' });
@@ -28,7 +27,6 @@ export function activate(context: vscode.ExtensionContext) {
     const document = await vscode.workspace.openTextDocument(uri);
     const line = document.lineAt(range.start.line);
     const edit = new vscode.WorkspaceEdit(); edit.insert(uri, new vscode.Position(line.lineNumber, 0), `// maskit-ignore-next-line reason="${reason.replace(/"/g, "'")}" expires="${expires}"\\n`); await vscode.workspace.applyEdit(edit);
-    vscode.window.showInformationMessage('MaskIt exception added and recorded locally.');
   };
   context.subscriptions.push(
     vscode.commands.registerCommand('maskit.scanCurrentFile', scanCurrentFile),
