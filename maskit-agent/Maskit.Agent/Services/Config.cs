@@ -16,6 +16,8 @@ public class AgentConfig
     public string RulesPath { get; set; } = "";
     public string AuditLogPath { get; set; } = "";
     public string ConfigPath { get; set; } = "";
+    public ServiceConfig Service { get; set; } = new();
+    public LoggingConfig Logging { get; set; } = new();
 
     public static AgentConfig Load(string? baseDirectory = null)
     {
@@ -37,12 +39,16 @@ public class AgentConfig
         {
             try
             {
-                var loaded = JsonSerializer.Deserialize<AgentConfig>(File.ReadAllText(configPath));
+                var loaded = JsonSerializer.Deserialize<AgentConfig>(
+                    File.ReadAllText(configPath),
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (loaded != null)
                 {
                     config.Enabled = loaded.Enabled;
                     config.ClipboardMonitoring = loaded.ClipboardMonitoring;
                     config.Notifications = loaded.Notifications;
+                    config.Service = loaded.Service ?? new ServiceConfig();
+                    config.Logging = loaded.Logging ?? new LoggingConfig();
                     // Packaged rules always win when present so release installs cannot
                     // accidentally point at a developer path from a previous config.
                     if (!Directory.Exists(packagedRules) && !string.IsNullOrWhiteSpace(loaded.RulesPath) && Directory.Exists(loaded.RulesPath))
@@ -88,6 +94,16 @@ public class AgentConfig
         }
         catch (Exception ex) { Console.Error.WriteLine($"Failed to save config: {ex.Message}"); }
     }
+}
+
+public class ServiceConfig
+{
+    public int HealthPort { get; set; } = 8088;
+}
+
+public class LoggingConfig
+{
+    public string Level { get; set; } = "information";
 }
 
 /// <summary>Compatibility alias used by Program and parity harness.</summary>

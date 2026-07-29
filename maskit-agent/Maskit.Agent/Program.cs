@@ -21,6 +21,39 @@ internal static class Program
         if (args.Length >= 1 && string.Equals(args[0], "--self-test", StringComparison.OrdinalIgnoreCase))
             return SelfTest(System.AppContext.BaseDirectory);
 
+        if (args.Length >= 1 && string.Equals(args[0], "--test-health", StringComparison.OrdinalIgnoreCase))
+        {
+            var testConfig = Config.Load();
+            if (!Directory.Exists(testConfig.RulesPath)) return 2;
+            var testRules = new RuleEngine();
+            testRules.LoadRules(testConfig.RulesPath);
+            var testPolicy = new PolicyEngine(testConfig);
+            var testHealth = new HealthService(testConfig.Service.HealthPort, "2.4.0", testRules, testPolicy);
+            testHealth.Start();
+            Console.WriteLine("HEALTH_SERVICE_STARTED");
+            try { Console.In.ReadLine(); } catch { /* ignore */ }
+            testHealth.Stop();
+            return 0;
+        }
+
+        if (args.Length >= 1 && string.Equals(args[0], "--service", StringComparison.OrdinalIgnoreCase))
+        {
+            var svcConfig = Config.Load();
+            if (!Directory.Exists(svcConfig.RulesPath)) return 2;
+            var svcRules = new RuleEngine();
+            svcRules.LoadRules(svcConfig.RulesPath);
+            var svcPolicy = new PolicyEngine(svcConfig);
+            var svcCore = new MaskitCoreService(svcRules, svcPolicy);
+            var svcAudit = new AuditLogger(svcConfig.AuditLogPath);
+            var svcForeground = new ForegroundDetector();
+            var svcClipboard = new ClipboardMonitor(svcCore, svcAudit, svcForeground);
+            var svcHealth = new HealthService(svcConfig.Service.HealthPort, "2.4.0", svcRules, svcPolicy);
+
+            using var service = new MaskitService(svcClipboard, svcHealth);
+            System.ServiceProcess.ServiceBase.Run(service);
+            return 0;
+        }
+
         if (args.Length >= 1 && (string.Equals(args[0], "--help", StringComparison.OrdinalIgnoreCase) || args[0] == "-h"))
         {
             PrintUsage();
@@ -42,8 +75,14 @@ internal static class Program
         var audit = new AuditLogger(config.AuditLogPath);
         var foreground = new ForegroundDetector();
         using var clipboard = new ClipboardMonitor(core, audit, foreground);
+        
+        var health = new HealthService(config.Service.HealthPort, "2.4.0", rules, policy);
+        health.Start();
+
         var tray = new TrayApplication(clipboard, policy, audit, config);
         System.Windows.Forms.Application.Run(tray);
+
+        health.Stop();
         return 0;
     }
 
@@ -190,6 +229,7 @@ internal static class Program
     {
         Console.WriteLine("Maskit Windows Agent");
         Console.WriteLine("  (no args)           Start tray agent");
+        Console.WriteLine("  --service           Start as headless Windows service");
         Console.WriteLine("  --scan <text>       Headless scan; optional --json --app <name>");
         Console.WriteLine("  --self-test         Verify packaged rules + canonical events");
         Console.WriteLine("  --parity            Shared fixture parity against maskit-core");

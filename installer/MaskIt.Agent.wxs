@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <Product Id="*" Name="MaskIt Agent" Language="1033" Version="2.4.0" Manufacturer="MaskIt" UpgradeCode="7d6c6e7f-8b9a-4c0d-8e1f-2a3b4c5d6e7f">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="ProductFeature" Title="MaskIt Agent" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="RulesComponents" />
+    </Feature>
+  </Product>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="MaskIt">
+          <Directory Id="RulesFolder" Name="maskit-core">
+            <Directory Id="RulesRulesFolder" Name="rules" />
+          </Directory>
+        </Directory>
+      </Directory>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- Executable and Service -->
+      <Component Id="AgentExeComponent" Guid="1d2c3e4f-5a6b-7c8d-9e0f-1a2b3c4d5e6f">
+        <File Id="MaskItAgentExe" Source="$(var.PublishDir)\MaskIt.Agent.exe" KeyPath="yes" />
+        
+        <ServiceInstall
+          Id="ServiceInstaller"
+          Type="ownProcess"
+          Name="MaskItAgent"
+          DisplayName="MaskIt Agent Service"
+          Description="MaskIt Windows Agent system-wide AI clipboard protection service."
+          Start="auto"
+          Account="LocalSystem"
+          ErrorControl="normal" />
+        
+        <ServiceControl
+          Id="ServiceControl"
+          Name="MaskItAgent"
+          Start="install"
+          Stop="both"
+          Remove="uninstall"
+          Wait="yes" />
+
+        <!-- Configure automatic recovery actions (restart service on failure) -->
+        <util:ServiceConfig
+          ServiceName="MaskItAgent"
+          FirstFailureActionType="restart"
+          SecondFailureActionType="restart"
+          ThirdFailureActionType="restart"
+          RestartServiceDelayInSeconds="1"
+          ResetPeriodInDays="1" />
+      </Component>
+
+      <!-- DLLs and Configurations -->
+      <Component Id="AgentDllComponent" Guid="2d3c4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e7f">
+        <File Id="MaskItAgentDll" Source="$(var.PublishDir)\MaskIt.Agent.dll" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="AgentDepsJsonComponent" Guid="3d4c5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f">
+        <File Id="MaskItAgentDepsJson" Source="$(var.PublishDir)\MaskIt.Agent.deps.json" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="AgentRuntimeConfigComponent" Guid="4d5c6e7f-8a9b-0c1d-2e3f-4a5b6c7d8e9f">
+        <File Id="MaskItAgentRuntimeConfig" Source="$(var.PublishDir)\MaskIt.Agent.runtimeconfig.json" KeyPath="yes" />
+      </Component>
+      
+      <Component Id="ServiceControllerDllComponent" Guid="5d6c7e8f-9a0b-1c2d-3e4f-5a6b7c8d9e0f">
+        <File Id="ServiceControllerDll" Source="$(var.PublishDir)\System.ServiceProcess.ServiceController.dll" KeyPath="yes" />
+      </Component>
+
+      <!-- Auto Launch Tray on User Login -->
+      <Component Id="TrayRunRegistryComponent" Guid="6d7c8e9f-0a1b-2c3d-4e5f-6a7b8c9d0e1f">
+        <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="MaskItAgent" Type="string" Value="&quot;[INSTALLFOLDER]MaskIt.Agent.exe&quot;" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Shared Rules files -->
+    <ComponentGroup Id="RulesComponents" Directory="RulesRulesFolder">
+      <Component Id="PiiJsonComponent" Guid="7d8c9e0f-1a2b-3c4d-5e6f-7a8b9c0d1e2f">
+        <File Id="PiiJson" Source="$(var.PublishDir)\maskit-core\rules\pii.json" KeyPath="yes" />
+      </Component>
+      <Component Id="SecretsJsonComponent" Guid="8d9c0e1f-2a3b-4c5d-6e7f-8a9b0c1d2e3f">
+        <File Id="SecretsJson" Source="$(var.PublishDir)\maskit-core\rules\secrets.json" KeyPath="yes" />
+      </Component>
+      <Component Id="FinancialJsonComponent" Guid="9da0e1f2-b3c4-5d6e-7f8a-9b0c1d2e3f4a">
+        <File Id="FinancialJson" Source="$(var.PublishDir)\maskit-core\rules\financial.json" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
