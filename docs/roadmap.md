@@ -479,4 +479,91 @@ Enterprise Governance
 ```
 
 One policy engine. One evidence model. One detection engine. Everywhere.
+# Enterprise Integration Layer
+
+## Philosophy
+
+MaskIt should not become another security dashboard that administrators must monitor.
+
+Enterprise teams already operate through:
+
+- Endpoint management platforms
+- RMM tools
+- SIEM platforms
+- Identity providers
+- Alerting systems
+
+MaskIt should integrate into existing workflows.
+
+The goal:
+
+> MaskIt provides local enforcement and security evidence while existing enterprise platforms provide management, visibility, and response.
+
+MaskIt should never require raw prompts, secrets, clipboard contents, or private files to leave the endpoint.
+
+---
+
+# Phase 1.5: Enterprise Operability Foundation
+
+## Timeline
+
+3 to 6 months
+
+## Goal
+
+Make MaskIt deployable, observable, and manageable without requiring a dedicated MaskIt console.
+
+---
+
+## Windows Agent Health Interface
+
+Build a lightweight local health endpoint.
+
+Purpose:
+
+Allow existing IT management tools to monitor MaskIt without custom integrations.
+
+Expose:
+
+- Agent status
+- Version
+- Policy version
+- Last synchronization time
+- Rules loaded
+- Service uptime
+- Detection statistics
+
+Example:
+
+```json
+{
+  "status": "active",
+  "version": "3.0.0",
+  "policyVersion": "5",
+  "lastSync": "2026-07-29T08:00:00Z",
+  "findingsToday": 4,
+  "rulesLoaded": 45
+}
+
+                 Enterprise Systems
+
+        SIEM       RMM       Identity
+          |         |           |
+
+          -----------------------
+                    |
+              MaskIt Agent
+                    |
+          -----------------------
+
+ Browser     IDE     CLI     MCP
+    |          |      |       |
+
+        Shared Context Engine
+
+              |
+        Policy Engine
+
+              |
+        Evidence Engine
 ```
