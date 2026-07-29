@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "mode": "strict",
+  "actions": {
+    "aws_keys": "block",
+    "github_tokens": "block",
+    "customer_data": "redact",
+    "generic_secret": "redact"
+  }
+}
