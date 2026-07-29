@@ -116,6 +116,8 @@ public sealed class ClipboardMonitor : IDisposable
                     Policy = evt.Policy,
                     Action = evt.Action,
                     Explanation = evt.Explanation,
+                    ContentType = evt.ContentType,
+                    Metadata = evt.Metadata,
                     RuleId = evt.RuleId,
                     MatchedValueHash = evt.MatchedValueHash
                 });

@@ -59,6 +59,8 @@
     "explanation": { "type": "string", "minLength": 1 },
     "ruleId": { "type": "string" },
     "matchedValueHash": { "type": "string" },
-    "chainHash": { "type": "string" }
+    "chainHash": { "type": "string" },
+    "contentType": { "type": "string" },
+    "metadata": { "type": "object" }
   }
 }

@@ -20,6 +20,8 @@
     "action":{"type":"string","enum":["allowed","warned","redacted","blocked","approval_required"]},
     "explanation":{"type":"string","minLength":1},
     "ruleId":{"type":"string"},
-    "matchedValueHash":{"type":"string"}
+    "matchedValueHash":{"type":"string"},
+    "contentType":{"type":"string"},
+    "metadata":{"type":"object"}
   }
 }

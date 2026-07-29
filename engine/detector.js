@@ -188,9 +188,17 @@ function applyPolicyToFindings(findings, context, settings) {
   });
 }
 
-function scanText(text, settings) {
+function scanText(textOrContext, settings) {
+  const isObjectContext = textOrContext && typeof textOrContext === 'object' && !Array.isArray(textOrContext);
+  const text = isObjectContext ? (textOrContext.content || '') : String(textOrContext || '');
   const mergedSettings = Object.assign({}, MASKIT_DEFAULTS, settings || {});
-  const context = (settings && settings._context) || {};
+  
+  let context = (settings && settings._context) || {};
+  if (isObjectContext) {
+    const { content, ...restContext } = textOrContext;
+    context = Object.assign({}, context, restContext);
+  }
+
   const findings = detectSensitiveData(text, mergedSettings);
   const riskScore = calculateRiskScore(findings, mergedSettings);
   const riskLevel = getRiskLevel(riskScore);
@@ -227,9 +235,17 @@ function scanText(text, settings) {
   };
 }
 
-function redactText(text, settings) {
+function redactText(textOrContext, settings) {
+  const isObjectContext = textOrContext && typeof textOrContext === 'object' && !Array.isArray(textOrContext);
+  const text = isObjectContext ? (textOrContext.content || '') : String(textOrContext || '');
   const mergedSettings = Object.assign({}, MASKIT_DEFAULTS, settings || {});
-  const context = (settings && settings._context) || {};
+  
+  let context = (settings && settings._context) || {};
+  if (isObjectContext) {
+    const { content, ...restContext } = textOrContext;
+    context = Object.assign({}, context, restContext);
+  }
+
   const findings = detectSensitiveData(text, mergedSettings);
   const policyDecisions = applyPolicyToFindings(findings, context, settings);
   const actionableFindings = policyDecisions
@@ -242,8 +258,8 @@ function redactText(text, settings) {
   };
 }
 
-function evaluatePolicy(text, settings) {
-  const result = scanText(text, settings);
+function evaluatePolicy(textOrContext, settings) {
+  const result = scanText(textOrContext, settings);
   const blocked = result.policyDecisions.filter((d) => d.action === 'block');
   const allowed = result.policyDecisions.filter((d) => d.action === 'allow');
   const redacted = result.policyDecisions.filter((d) => d.action === 'redact');

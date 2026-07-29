@@ -686,5 +686,66 @@ test("isUserExempt returns false for non-exempt user", () => {
     assert.strictEqual(isUserExempt(ks, "bob@company.com"), false);
 });
 
+// ── Phase 0: Unified Context & File Scanning Contract Tests ──────────────────
+
+test("scanText accepts a unified Context object and performs scanning/redaction", () => {
+    const context = {
+        source: "browser_file",
+        application: "chatgpt.com",
+        user: "local",
+        contentType: "text/csv",
+        content: "Email: alice@company.com, Key: sk-abcdefghijklmnopqrstuvwxyz1234",
+        metadata: {
+            filename: "customers.csv",
+            size: 12345
+        }
+    };
+
+    const result = scanText(context, Object.assign({}, allEnabled, { redactFormat: "tagged" }));
+    assert.ok(result.findings.some((f) => f.type === "EMAIL"));
+    assert.ok(result.findings.some((f) => f.type === "API_KEY"));
+    assert.ok(result.redactedText.includes("[EMAIL_REDACTED]"));
+    assert.ok(result.redactedText.includes("[API_KEY_REDACTED]"));
+
+    // Check that generated audit events carry metadata and contentType
+    assert.ok(result.events.length > 0, "expected generated audit events");
+    result.events.forEach((evt) => {
+        assert.strictEqual(evt.source, "browser"); // normalized from browser_file
+        assert.strictEqual(evt.application, "chatgpt.com");
+        assert.strictEqual(evt.contentType, "text/csv");
+        assert.deepStrictEqual(evt.metadata, { filename: "customers.csv", size: 12345 });
+        
+        // Assert schema validity
+        const validation = validateContextEvent(evt);
+        assert.ok(validation.valid, "canonical audit event should be valid: " + JSON.stringify(validation.errors));
+    });
+});
+
+test("validateContextEvent checks contentType and metadata types", () => {
+    const validEvent = {
+        schemaVersion: "1.0",
+        eventId: "evt_1234567890",
+        timestamp: new Date().toISOString(),
+        source: "browser",
+        application: "chatgpt.com",
+        dataType: "EMAIL",
+        confidence: 0.9,
+        risk: "medium",
+        policy: { name: "default", version: "1", result: "redact" },
+        action: "redacted",
+        explanation: "Rule matched in chatgpt.com",
+        contentType: "text/plain",
+        metadata: { info: "test" }
+    };
+    
+    assert.ok(validateContextEvent(validEvent).valid);
+
+    const invalidEvent1 = Object.assign({}, validEvent, { contentType: 12345 });
+    assert.strictEqual(validateContextEvent(invalidEvent1).valid, false);
+
+    const invalidEvent2 = Object.assign({}, validEvent, { metadata: "not-an-object" });
+    assert.strictEqual(validateContextEvent(invalidEvent2).valid, false);
+});
+
 console.log("\n" + passed + " passed, " + failed + " failed\n");
 process.exit(failed > 0 ? 1 : 0);

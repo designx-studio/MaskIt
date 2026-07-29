@@ -138,6 +138,8 @@ public class AuditEvent
     public PolicyInfo Policy { get; set; } = new();
     public string Action { get; set; } = "redacted";
     public string Explanation { get; set; } = "Sensitive context matched a configured rule.";
+    public string? ContentType { get; set; }
+    public object? Metadata { get; set; }
     public string? RuleId { get; set; }
     public string? MatchedValueHash { get; set; }
     public string? ChainHash { get; set; }

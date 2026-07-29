@@ -138,6 +138,8 @@ public sealed class CoreAuditEvent
     public PolicyInfo Policy { get; init; } = new();
     public string Action { get; init; } = "redacted";
     public string Explanation { get; init; } = "Sensitive context matched a configured rule.";
+    public string? ContentType { get; init; }
+    public object? Metadata { get; init; }
     public string RuleId { get; init; } = "";
     public string MatchedValueHash { get; init; } = "";
 }

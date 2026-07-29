@@ -80,6 +80,8 @@ function createContextEvent(input = {}) {
     event.matchedValueHash = hashMatchedValue(input.matchedValue);
   }
   if (input.chainHash) event.chainHash = String(input.chainHash);
+  if (input.contentType) event.contentType = String(input.contentType);
+  if (input.metadata) event.metadata = input.metadata;
 
   return event;
 }
@@ -105,6 +107,12 @@ function validateContextEvent(event) {
   if ('unmaskToken' in event || 'unmaskedAt' in event || 'unmaskedDuration' in event) {
     errors.push('unmask fields are not part of the canonical schema');
   }
+  if (event.contentType !== undefined && event.contentType !== null && typeof event.contentType !== 'string') {
+    errors.push('contentType must be a string');
+  }
+  if (event.metadata !== undefined && event.metadata !== null && typeof event.metadata !== 'object') {
+    errors.push('metadata must be an object');
+  }
   return { valid: errors.length === 0, errors };
 }
 
@@ -116,10 +124,6 @@ function confidenceForFinding(finding) {
   return 0.85;
 }
 
-/**
- * Build a canonical event from a scan finding + policy decision.
- * This is the only supported production path for audit events.
- */
 function createEventFromFinding({ finding, decision, context = {}, riskScore = 0, settings = {} }) {
   const action = decision?.action || 'redact';
   const result = policyResultFromAction(action);
@@ -130,6 +134,8 @@ function createEventFromFinding({ finding, decision, context = {}, riskScore = 0
     application: app,
     user: context.user || null,
     device: context.device || null,
+    contentType: context.contentType || null,
+    metadata: context.metadata || null,
     dataType: finding?.type || 'unknown',
     confidence: confidenceForFinding(finding),
     risk: RISKS.has(severity) ? severity : 'medium',

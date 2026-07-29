@@ -118,6 +118,8 @@
     if (input.ruleId) event.ruleId = String(input.ruleId);
     if (input.matchedValueHash) event.matchedValueHash = String(input.matchedValueHash);
     else if (input.matchedValue != null && input.matchedValue !== "") event.matchedValueHash = sha256Hex(String(input.matchedValue));
+    if (input.contentType) event.contentType = String(input.contentType);
+    if (input.metadata) event.metadata = input.metadata;
     return event;
   }
 
@@ -144,6 +146,8 @@
       application: app,
       user: context.user || null,
       device: context.device || null,
+      contentType: context.contentType || null,
+      metadata: context.metadata || null,
       dataType: finding.type || "unknown",
       confidence: confidenceForFinding(finding),
       risk: RISKS[severity] ? severity : "medium",
@@ -170,6 +174,8 @@
     if (!event.explanation) errors.push("explanation is required");
     if ("value" in event || "matchedValue" in event) errors.push("raw sensitive value must not be stored");
     if ("unmaskToken" in event || "unmaskedAt" in event || "unmaskedDuration" in event) errors.push("unmask fields are not part of the canonical schema");
+    if (event.contentType !== undefined && event.contentType !== null && typeof event.contentType !== "string") errors.push("contentType must be a string");
+    if (event.metadata !== undefined && event.metadata !== null && typeof event.metadata !== "object") errors.push("metadata must be an object");
     return { valid: errors.length === 0, errors: errors };
   }
 
