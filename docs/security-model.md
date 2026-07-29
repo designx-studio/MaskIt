@@ -1,9 +1,16 @@
 # Security Model
 
-Maskit is local-first: browser detection runs in the extension, MCP and CLI run in a local Node process, and the Windows agent runs locally.
+MaskIt is local-first: browser detection runs in the extension, MCP and CLI run in a local Node process, and the Windows agent runs locally.
 
-Controls include per-app policies with `allow`, `redact`, and `block`; hash-chained local audit events (canonical schema only; irreversible SHA-256 value hashes, unsalted in v2.4.0); configurable retention; and a local admin killswitch with duration or schedule. MaskIt does not support unmasking — behaviour is Detect → Redact/Block → Audit.
+## Implemented controls
+- Per-app policies support `allow`, `redact`, and `block` through the existing engine policy APIs.
+- Hash-chained local audit events use the canonical schema and do not store raw matched values.
+- Configurable retention and local killswitch controls are available where documented by each adapter.
+- Manifest V3 limits extension execution to declared local code and supported hosts.
+- Regex safety validation is available through `npm run test:regex`; this is a validation tool, not a proof that every future rule is safe.
+- The Phase 3 `PolicyManager` provides validated, fail-closed policy loading and hot reload for Node-based consumers. Browser and Windows-native consumers still require adapter-specific integration before a unified-policy claim is made.
 
-Maskit is a defense-in-depth tool, not a guarantee and not a full DLP or compliance certification product. Review policies, permissions, and deployment configuration before production use. Supported browser hosts are limited to the patterns in the extension manifest.
+## Boundaries and limitations
+MaskIt does not support unmasking. Behaviour is Detect -> Redact/Block -> Audit. It is defense-in-depth, not a guarantee, full DLP product, or compliance certification. Review permissions, supported hosts, policy configuration, and false-positive/false-negative risk before production use.
 
 Pilot materials: [docs/pilot/](pilot/) and [claims-evidence-matrix.md](claims-evidence-matrix.md).

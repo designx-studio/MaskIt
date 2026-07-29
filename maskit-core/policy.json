@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "mode": "strict",
+  "actions": {
+    "aws_keys": "block",
+    "github_tokens": "block",
+    "customer_data": "redact",
+    "generic_secret": "redact",
+    "API_KEY_OPENAI": "redact",
+    "API_KEY_STRIPE": "redact",
+    "API_KEY_GITHUB": "block",
+    "API_KEY_AWS_ACCESS": "block",
+    "API_KEY_AWS_SECRET": "block",
+    "API_KEY_GCP": "block",
+    "API_KEY_AZURE_CONN": "block",
+    "CARD": "block",
+    "SSN": "block",
+    "BANK_ACCOUNT": "block",
+    "PASSPORT": "redact",
+    "IP_ADDRESS": "redact",
+    "PHONE": "redact",
+    "EMAIL": "redact",
+    "MPESA": "redact"
+  }
+}
