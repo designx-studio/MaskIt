@@ -40,24 +40,9 @@ const {
     isUserExempt
 } = require("./index");
 
+const test = require("node:test");
+
 const allEnabled = Object.assign({}, MASKIT_DEFAULTS);
-
-let passed = 0;
-let failed = 0;
-
-function test(name, fn) {
-    try {
-        fn();
-        passed++;
-        console.log("  PASS  " + name);
-    } catch (err) {
-        failed++;
-        console.error("  FAIL  " + name);
-        console.error("        " + err.message);
-    }
-}
-
-console.log("\nMaskit shared engine tests\n");
 
 // ── Core detection ──────────────────────────────────────────────────────────
 
@@ -746,6 +731,3 @@ test("validateContextEvent checks contentType and metadata types", () => {
     const invalidEvent2 = Object.assign({}, validEvent, { metadata: "not-an-object" });
     assert.strictEqual(validateContextEvent(invalidEvent2).valid, false);
 });
-
-console.log("\n" + passed + " passed, " + failed + " failed\n");
-process.exit(failed > 0 ? 1 : 0);
