@@ -73,14 +73,17 @@ function normalizeStoredEvent(event) {
 // Audit log batching configuration
 const AUDIT_FLUSH_INTERVAL_MS = 2000;
 const AUDIT_FLUSH_COUNT_THRESHOLD = 10;
+const AUDIT_MAX_STALENESS_MS = 30000;
 let _pendingAuditEvents = [];
 let _auditFlushTimer = null;
+let _oldestPendingEventTime = null;
 
 async function flushPendingAuditEvents() {
   if (_pendingAuditEvents.length === 0) return;
   
   const eventsToFlush = [..._pendingAuditEvents];
   _pendingAuditEvents = [];
+  _oldestPendingEventTime = null;
   
   if (_auditFlushTimer) {
     clearTimeout(_auditFlushTimer);
@@ -112,16 +115,41 @@ function scheduleAuditFlush() {
 
 function recordAuditEvents(events) {
   if (!events || !events.length) return;
+  if (_pendingAuditEvents.length === 0) {
+    _oldestPendingEventTime = Date.now();
+  }
   _pendingAuditEvents.push(...events);
   
-  if (_pendingAuditEvents.length >= AUDIT_FLUSH_COUNT_THRESHOLD) {
+  const isStale = _oldestPendingEventTime && (Date.now() - _oldestPendingEventTime >= AUDIT_MAX_STALENESS_MS);
+
+  if (_pendingAuditEvents.length >= AUDIT_FLUSH_COUNT_THRESHOLD || isStale) {
     flushPendingAuditEvents();
   } else {
     scheduleAuditFlush();
   }
 }
 
-// Flush on extension unload
+// Persistent MV3 alarms flush schedule
+function initAuditFlushAlarm() {
+  if (typeof chrome !== "undefined" && chrome.alarms) {
+    try {
+      chrome.alarms.create("maskit-audit-flush", { periodInMinutes: 1 });
+    } catch {
+      // alarms unavailable
+    }
+  }
+}
+initAuditFlushAlarm();
+
+if (typeof chrome !== "undefined" && chrome.alarms && chrome.alarms.onAlarm) {
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm && alarm.name === "maskit-audit-flush") {
+      flushPendingAuditEvents();
+    }
+  });
+}
+
+// Flush on extension unload / suspend
 if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onSuspend) {
   chrome.runtime.onSuspend.addListener(() => {
     flushPendingAuditEvents();

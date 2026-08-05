@@ -4,7 +4,7 @@
   "version": "2.4.0",
   "description": "Protect sensitive information before it reaches AI tools. Local processing only.",
   "browser_specific_settings": {"gecko": {"id": "maskit@maskit.local", "strict_min_version": "109.0"}},
-  "permissions": ["storage", "contextMenus"],
+  "permissions": ["storage", "contextMenus", "alarms"],
   "host_permissions": ["https://chatgpt.com/*", "https://chat.openai.com/*", "https://claude.ai/*", "https://gemini.google.com/*", "https://copilot.microsoft.com/*", "https://*.copilot.microsoft.com/*", "https://*.cursor.com/*"],
   "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'self'; style-src 'self'"},
   "background": {"service_worker": "background.js"},
