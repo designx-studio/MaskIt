@@ -1655,9 +1655,7 @@ function _maskitInit() {
   // ── DOM event listeners ───────────────────────────────────────────────────
 
   document.addEventListener("paste", handlePaste, true);
-  window.addEventListener("paste", handlePaste, true);
   document.addEventListener("copy", handleCopy, true);
-  window.addEventListener("copy", handleCopy, true);
   document.addEventListener("beforeinput", handleBeforeInput, true);
   document.addEventListener("input", handleInput, true);
   document.addEventListener("keyup", handleKeyup, true);
