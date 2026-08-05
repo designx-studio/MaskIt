@@ -101,6 +101,28 @@ function compileCustomRule(pattern) {
   }
 }
 
+const CUSTOM_RULE_TIMEOUT_MS = 50;
+function matchWithTimeout(regex, text, timeoutMs = CUSTOM_RULE_TIMEOUT_MS) {
+  const start = Date.now();
+  regex.lastIndex = 0;
+  const matches = [];
+  let match;
+  let timedOut = false;
+  while ((match = regex.exec(text)) !== null) {
+    matches.push(match[0]);
+    if (Date.now() - start > timeoutMs) {
+      console.warn(`MaskIt: Custom rule exceeded ${timeoutMs}ms budget, aborting scan`);
+      timedOut = true;
+      break;
+    }
+    if (match.index === regex.lastIndex) {
+      regex.lastIndex++;
+    }
+  }
+  matches.timedOut = timedOut;
+  return matches;
+}
+
 function dedupeFindings(findings) {
   const seen = new Set();
   return findings.filter((item) => {
@@ -144,14 +166,15 @@ function detectSensitiveData(text, settings) {
     if (!rule || rule.enabled === false || !rule.pattern) return;
     const regex = compileCustomRule(rule.pattern);
     if (!regex) return;
-    regex.lastIndex = 0;
-    const matches = scanText.match(regex) || [];
+    const matches = matchWithTimeout(regex, scanText);
+    const timedOut = matches.timedOut;
     matches.forEach((match) => {
       findings.push({
         type: 'CUSTOM:' + (rule.name || rule.id || 'RULE'),
         value: match,
         severity: (settings.severity || SEVERITY_DEFAULTS).CUSTOM || 'medium',
-        ruleName: rule.name || rule.id || 'RULE'
+        ruleName: rule.name || rule.id || 'RULE',
+        timedOut
       });
     });
   });
