@@ -108,7 +108,7 @@ try {
   workerThreads = require('worker_threads');
 } catch {}
 
-const CUSTOM_RULE_TIMEOUT_MS = 150;
+const CUSTOM_RULE_TIMEOUT_MS = 250;
 
 function matchWithTimeout(regexOrPattern, text, timeoutMs = CUSTOM_RULE_TIMEOUT_MS) {
   const pattern = typeof regexOrPattern === 'string' ? regexOrPattern : regexOrPattern.source;

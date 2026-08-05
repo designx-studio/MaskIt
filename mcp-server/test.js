@@ -9,7 +9,18 @@ console.log("\nMaskit MCP server tests\n");
 test("config.getConfigPath returns a string", () => { assert.strictEqual(typeof config.getConfigPath(), "string"); });
 test("config.getDefaultConfig has expected fields", () => { const defaults = config.getDefaultConfig(); assert.strictEqual(defaults.enabled, true); assert.ok(defaults.severity); assert.ok(defaults.appOverrides); assert.ok(defaults.appOverrides["claude-desktop"]); });
 test("config.readConfig returns defaults when no file exists", () => { const cfg = config.readConfig(); assert.strictEqual(cfg.enabled, true); assert.ok(typeof cfg.version === "string"); });
-test("config.writeConfig and readConfig round-trip", () => { const testConfig = config.getDefaultConfig(); testConfig.testFlag = true; const writeResult = config.writeConfig(testConfig); assert.strictEqual(writeResult.ok, true); const readBack = config.readConfig(); assert.strictEqual(readBack.testFlag, true); delete readBack.testFlag; config.writeConfig(readBack); });
+test("config.writeConfig and readConfig round-trip", () => {
+  const configPath = config.getConfigPath();
+  if (fs.existsSync(configPath)) { try { fs.unlinkSync(configPath); } catch {} }
+  const testConfig = config.getDefaultConfig();
+  testConfig.testFlag = true;
+  const writeResult = config.writeConfig(testConfig);
+  assert.strictEqual(writeResult.ok, true);
+  const readBack = config.readConfig();
+  assert.strictEqual(readBack.testFlag, true);
+  delete readBack.testFlag;
+  config.writeConfig(readBack);
+});
 test("config.getSettingsForApp merges app overrides", () => { const settings = config.getSettingsForApp("claude-desktop"); assert.strictEqual(settings.reviewBeforeRedact, true); assert.strictEqual(settings.enabled, true); });
 test("config.getSettingsForApp returns base config for unknown app", () => { assert.strictEqual(config.getSettingsForApp("unknown-app").enabled, true); });
 test("config.getSettingsForApp returns base config for no app", () => { assert.strictEqual(config.getSettingsForApp().enabled, true); });

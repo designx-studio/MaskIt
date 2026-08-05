@@ -73,6 +73,7 @@ vm.createContext(context);
 
 vm.runInContext(fs.readFileSync(path.join(__dirname, "../../settings.js"), "utf8"), context);
 vm.runInContext(fs.readFileSync(path.join(__dirname, "../../context-event.js"), "utf8"), context);
+vm.runInContext(fs.readFileSync(path.join(__dirname, "../../background-audit-log.js"), "utf8"), context);
 vm.runInContext(fs.readFileSync(path.join(__dirname, "../../background.js"), "utf8"), context);
 
 // 1. Verify chrome.alarms.create was called on init with expected alarm name

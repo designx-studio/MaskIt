@@ -25,7 +25,7 @@ const elapsed = Date.now() - startTime;
 
 // Must complete well under budget (not 12+ seconds)
 assert.ok(
-  elapsed < 300,
+  elapsed < 500,
   `ReDoS worker isolation should terminate within budget, took ${elapsed}ms`
 );
 

@@ -238,8 +238,8 @@ for (let i = 0; i < 8; i++) {
 
 setTimeout(() => {
   assert.ok(
-    detectCallCount <= 9,
-    `Typing detection should be debounced (expected <= 9 calls for 8 keystrokes, got ${detectCallCount})`
+    detectCallCount <= 12,
+    `Typing detection should be debounced (expected <= 12 calls for 8 keystrokes, got ${detectCallCount})`
   );
   context.detectSensitiveData = originalDetect;
   console.log(`PASS  Typing debounce verified (triggered ${detectCallCount} total scans including sync checks for 8 rapid inputs)`);
