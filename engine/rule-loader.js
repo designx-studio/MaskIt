@@ -7,6 +7,21 @@ const RULE_FILES = ['pii.json', 'financial.json', 'secrets.json'];
 
 let cachedBundle = null;
 let cachedVersions = null;
+let cachedRegexMap = new Map();
+
+function compileRegex(rule) {
+  const key = `${rule.pattern}|${rule.flags || 'g'}`;
+  if (cachedRegexMap.has(key)) {
+    return cachedRegexMap.get(key);
+  }
+  try {
+    const regex = new RegExp(rule.pattern, rule.flags || 'g');
+    cachedRegexMap.set(key, regex);
+    return regex;
+  } catch {
+    return null;
+  }
+}
 
 function loadRuleBundle(forceReload = false) {
   if (cachedBundle && !forceReload) return cachedBundle;
@@ -44,6 +59,7 @@ function findingTypeForRule(rule) {
 function clearRuleCache() {
   cachedBundle = null;
   cachedVersions = null;
+  cachedRegexMap.clear();
 }
 
 function getRuleDir() {
@@ -57,5 +73,6 @@ module.exports = {
   enabledTypeForRule,
   findingTypeForRule,
   clearRuleCache,
-  getRuleDir
+  getRuleDir,
+  compileRegex
 };

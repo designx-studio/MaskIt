@@ -18,7 +18,8 @@ const {
   loadRuleBundle,
   ruleVersion,
   enabledTypeForRule,
-  findingTypeForRule
+  findingTypeForRule,
+  compileRegex
 } = require('./rule-loader');
 const { createEventFromFinding, createContextEvent } = require('./context');
 
@@ -141,12 +142,8 @@ function detectSensitiveData(text, settings) {
   rules.forEach((rule) => {
     const enabledType = enabledTypeForRule(rule);
     if (settings[enabledType] === false) return;
-    let regex;
-    try {
-      regex = new RegExp(rule.pattern, rule.flags || 'g');
-    } catch {
-      return;
-    }
+    const regex = compileRegex(rule);
+    if (!regex) return;
     regex.lastIndex = 0;
     const matches = scanText.match(regex) || [];
     const findingType = findingTypeForRule(rule);
@@ -351,10 +348,9 @@ function getPatternsMap() {
   const map = {};
   loadRuleBundle().forEach((rule) => {
     if (rule.id.startsWith('API_KEY')) return;
-    try {
-      map[rule.id] = new RegExp(rule.pattern, rule.flags || 'g');
-    } catch {
-      /* skip invalid */
+    const regex = compileRegex(rule);
+    if (regex) {
+      map[rule.id] = regex;
     }
   });
   return map;
@@ -363,13 +359,7 @@ function getPatternsMap() {
 function getApiKeyPatterns() {
   return loadRuleBundle()
     .filter((rule) => rule.id.startsWith('API_KEY'))
-    .map((rule) => {
-      try {
-        return new RegExp(rule.pattern, rule.flags || 'g');
-      } catch {
-        return null;
-      }
-    })
+    .map((rule) => compileRegex(rule))
     .filter(Boolean);
 }
 
