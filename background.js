@@ -1,34 +1,11 @@
-importScripts("settings.js", "context-event.js");
+importScripts("settings.js", "context-event.js", "background-audit-log.js");
 const BADGE_ON_COLOR = "#00b894";
 const BADGE_OFF_COLOR = "#5f6368";
 const BADGE_PAUSED_COLOR = "#f6b93b";
 function getPauseState(callback) { try { chrome.storage.session.get({ paused: false }, (data) => callback(!!(data && data.paused))); } catch { callback(false); } }
 function setPauseState(paused, callback) { try { chrome.storage.session.set({ paused }, () => { if (callback) callback(); }); } catch { if (callback) callback(); } }
 function broadcastPauseState(paused, tabId) { const msg = { type: "PAUSE_STATE_CHANGED", paused }; if (typeof tabId === "number") { chrome.tabs.sendMessage(tabId, msg, () => { void chrome.runtime.lastError; }); return; } chrome.tabs.query({}, (tabs) => tabs.forEach((tab) => { if (tab.id) chrome.tabs.sendMessage(tab.id, msg, () => { void chrome.runtime.lastError; }); })); }
-function getStats(callback) { chrome.storage.local.get({ stats: MASKIT_STATS_DEFAULTS }, (data) => callback(data.stats || { ...MASKIT_STATS_DEFAULTS })); }
-function saveStats(stats) {
-  chrome.storage.local.set({ stats }, () => {
-    if (chrome.runtime.lastError) {
-      console.error("MaskIt: Failed to save stats:", chrome.runtime.lastError.message);
-    }
-  });
-}
 function recordRedactions(counts, source) { if (!counts || !Object.keys(counts).length) return; getStats((stats) => { const added = Object.values(counts).reduce((sum, count) => sum + count, 0); stats.totalRedactions += added; stats.bySource = stats.bySource || { paste: 0, copy: 0, typing: 0 }; stats.byType = stats.byType || {}; stats.bySource[source] = (stats.bySource[source] || 0) + added; Object.entries(counts).forEach(([type, count]) => { stats.byType[type] = (stats.byType[type] || 0) + count; }); saveStats(stats); updateActionBadge(); }); }
-function getAuditLog(callback) { chrome.storage.local.get({ auditLog: { events: [], retentionDays: 30 } }, (data) => callback(data.auditLog || { events: [], retentionDays: 30 })); }
-const AUDIT_LOG_MAX_EVENTS = 5000;
-function saveAuditLog(auditLog) {
-  if (auditLog && auditLog.events && auditLog.events.length > AUDIT_LOG_MAX_EVENTS) {
-    auditLog.events = auditLog.events.slice(-AUDIT_LOG_MAX_EVENTS);
-  }
-  chrome.storage.local.set({ auditLog }, () => {
-    if (chrome.runtime.lastError) {
-      console.error("MaskIt: Failed to save audit log:", chrome.runtime.lastError.message);
-      chrome.storage.local.set({ auditLogWriteError: true }, () => {
-        if (chrome.runtime.lastError) console.error("MaskIt: Failed to set audit log error flag:", chrome.runtime.lastError.message);
-      });
-    }
-  });
-}
 function eventTimestampMs(event) {
   if (!event) return 0;
   if (typeof event.timestamp === "number") return event.timestamp;
