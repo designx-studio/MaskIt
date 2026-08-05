@@ -727,7 +727,22 @@ function _maskitInit() {
       return;
     }
 
-    const findings = detectSensitiveData(proposed, currentSettings);
+    // For large fields, only scan the delta (insertion + context window)
+    const FULL_SCAN_THRESHOLD = 500;
+    const CONTEXT_WINDOW = 200;
+    let scanText = proposed;
+    
+    if (proposed.length > FULL_SCAN_THRESHOLD) {
+      const incoming = inputType === "insertLineBreak" || inputType === "insertParagraph"
+        ? "\n"
+        : event.data ?? "";
+      const cursorPos = (target.selectionStart ?? target.value?.length ?? proposed.length) + incoming.length;
+      const start = Math.max(0, cursorPos - CONTEXT_WINDOW);
+      const end = Math.min(proposed.length, cursorPos + CONTEXT_WINDOW);
+      scanText = proposed.slice(start, end);
+    }
+
+    const findings = detectSensitiveData(scanText, currentSettings);
     if (!findings.length) {
       scheduleTypingScan(target, isRichEditor(target) ? 250 : 120);
       return;
@@ -785,12 +800,11 @@ function _maskitInit() {
     const target = findEditableElement(event.target);
     if (!target) return;
 
+    // Only flush immediately on space/enter/tab — general debounce is handled by handleInput
     if (event.key === " " || event.key === "Enter" || event.key === "Tab") {
       clearTypingScanSchedule();
       setTimeout(() => scanTypedContent(target), isRichEditor(target) ? 50 : 0);
-      return;
     }
-    scheduleTypingScan(target, isRichEditor(target) ? 120 : 60);
   }
 
   function handleCompositionEnd(event) {
