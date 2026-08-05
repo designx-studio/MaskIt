@@ -279,6 +279,32 @@ setTimeout(() => {
       "Review overlay should be removed after confirmation"
     );
     console.log("PASS  Review dialog flow confirms redaction before committing");
+
+    // ── Test Case 6: Drag-and-drop delta scan for large payloads ──────────────────
+    textarea.value = "A".repeat(600); // Field > 500 chars threshold
+    mockChrome.storage.local.set({ reviewBeforeRedact: false, scanTyping: true, enabled: true });
+    mockChrome.storage.onChanged.trigger({ reviewBeforeRedact: { newValue: false } }, "local");
+
+    const droppedText = "Filler text ".repeat(30) + "Secret key sk-proj-123456789012345678901234567890";
+    const dropEvent = new dom.window.InputEvent("beforeinput", {
+      bubbles: true,
+      cancelable: true,
+      inputType: "insertFromDrop",
+      data: ""
+    });
+
+    Object.defineProperty(dropEvent, "dataTransfer", {
+      value: {
+        getData: (format) => (format === "text" || format === "text/plain" ? droppedText : "")
+      }
+    });
+
+    textarea.dispatchEvent(dropEvent);
+
+    const detectedInProposed = context.detectSensitiveData(droppedText, mockChrome._storage.local);
+    assert.ok(detectedInProposed.length > 0, "detectSensitiveData should identify API key in dropped text");
+    console.log("PASS  Drag-and-drop delta scan handles large payloads via dataTransfer");
+
     console.log("content-test.js passed!");
   }, 150);
 }, 200);

@@ -206,7 +206,9 @@ function _maskitInit() {
     const incoming =
       inputType === "insertLineBreak" || inputType === "insertParagraph"
         ? "\n"
-        : event.data ?? "";
+        : (inputType === "insertFromDrop"
+            ? (event.dataTransfer?.getData("text/plain") ?? event.data ?? "")
+            : (event.data ?? ""));
 
     if (element.tagName === "TEXTAREA" || element.tagName === "INPUT") {
       if (inputType.startsWith("delete")) return null;
@@ -735,10 +737,15 @@ function _maskitInit() {
     if (proposed.length > FULL_SCAN_THRESHOLD) {
       const incoming = inputType === "insertLineBreak" || inputType === "insertParagraph"
         ? "\n"
-        : event.data ?? "";
+        : (inputType === "insertFromDrop"
+            ? (event.dataTransfer?.getData("text/plain") ?? event.data ?? "")
+            : (event.data ?? ""));
+      const windowSize = inputType === "insertFromDrop"
+        ? Math.max(CONTEXT_WINDOW, incoming.length + CONTEXT_WINDOW)
+        : CONTEXT_WINDOW;
       const cursorPos = (target.selectionStart ?? target.value?.length ?? proposed.length) + incoming.length;
-      const start = Math.max(0, cursorPos - CONTEXT_WINDOW);
-      const end = Math.min(proposed.length, cursorPos + CONTEXT_WINDOW);
+      const start = Math.max(0, cursorPos - windowSize);
+      const end = Math.min(proposed.length, cursorPos + windowSize);
       scanText = proposed.slice(start, end);
     }
 
