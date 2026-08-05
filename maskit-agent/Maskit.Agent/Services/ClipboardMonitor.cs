@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Threading;
 
 namespace Maskit.Agent.Services;
@@ -18,7 +19,7 @@ public sealed class ClipboardMonitor : IDisposable
     private IntPtr _hwnd;
     private Thread? _thread;
     private bool _running;
-    private string? _lastText;
+    private string? _lastTextHash;
     private DateTime _lastProcessed = DateTime.MinValue; // FIXED: M2 — track the last clipboard processing time
     private static readonly TimeSpan MinInterval = TimeSpan.FromMilliseconds(200); // FIXED: M2 — cap clipboard processing frequency
     private GCHandle _callbackHandle;
@@ -94,8 +95,13 @@ public sealed class ClipboardMonitor : IDisposable
         try
         {
             var text = Marshal.PtrToStringUni(ptr);
-            if (string.IsNullOrEmpty(text) || text == _lastText) return;
-            _lastText = text;
+            if (string.IsNullOrEmpty(text)) return;
+            
+            // Hash the text for deduplication instead of storing plaintext
+            var textHash = ComputeHash(text);
+            if (textHash == _lastTextHash) return;
+            _lastTextHash = textHash;
+            
             var context = _foreground.GetForegroundContext();
             var result = _core.Scan(text, context, "windows-clipboard");
             if (result.Findings.Count == 0) return;
@@ -127,6 +133,14 @@ public sealed class ClipboardMonitor : IDisposable
             OnRedaction?.Invoke(context.ProcessName, result.Findings.Count);
         }
         finally { GlobalUnlock(data); }
+    }
+
+    private static string ComputeHash(string text)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(text);
+        var hash = sha256.ComputeHash(bytes);
+        return Convert.ToBase64String(hash);
     }
 
     private static void ReplaceClipboard(string text)
