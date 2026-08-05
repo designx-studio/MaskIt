@@ -119,11 +119,16 @@
         }
       });
     });
+    const CUSTOM_RULE_MAX_SCAN_LENGTH = 2000;
+    const customScanText = scanText.length > CUSTOM_RULE_MAX_SCAN_LENGTH ? scanText.slice(0, CUSTOM_RULE_MAX_SCAN_LENGTH) : scanText;
+    const cycleStart = Date.now();
+    const cycleBudgetMs = 50;
     (settings.customRules || []).forEach((rule) => {
+      if (Date.now() - cycleStart > cycleBudgetMs) return;
       if (!rule || rule.enabled === false || !rule.pattern) return;
       const regex = compileCustomRule(rule.pattern);
       if (!regex) return;
-      (scanText.match(regex) || []).forEach((match) => {
+      (customScanText.match(regex) || []).forEach((match) => {
         findings.push({
           type: "CUSTOM:" + (rule.name || rule.id || "RULE"),
           value: match,

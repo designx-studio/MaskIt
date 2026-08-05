@@ -102,14 +102,66 @@ function compileCustomRule(pattern) {
   }
 }
 
-const CUSTOM_RULE_TIMEOUT_MS = 50;
-function matchWithTimeout(regex, text, timeoutMs = CUSTOM_RULE_TIMEOUT_MS) {
+const path = require('path');
+let workerThreads = null;
+try {
+  workerThreads = require('worker_threads');
+} catch {}
+
+const CUSTOM_RULE_TIMEOUT_MS = 150;
+
+function matchWithTimeout(regexOrPattern, text, timeoutMs = CUSTOM_RULE_TIMEOUT_MS) {
+  const pattern = typeof regexOrPattern === 'string' ? regexOrPattern : regexOrPattern.source;
+  const flags = typeof regexOrPattern === 'object' && regexOrPattern.flags ? regexOrPattern.flags : 'gi';
+
+  if (workerThreads && workerThreads.Worker) {
+    try {
+      const { MessageChannel, receiveMessageOnPort } = workerThreads;
+      const channel = new MessageChannel();
+      const sab = new SharedArrayBuffer(4);
+      const int32 = new Int32Array(sab);
+
+      const worker = new workerThreads.Worker(path.join(__dirname, 'regex-worker.js'), {
+        workerData: { pattern, flags, text, sab, port: channel.port2 },
+        transferList: [channel.port2]
+      });
+
+      const waitStatus = Atomics.wait(int32, 0, 0, timeoutMs);
+
+      if (waitStatus === 'timed-out') {
+        worker.terminate();
+        channel.port1.close();
+        console.warn(`MaskIt: Custom rule exceeded ${timeoutMs}ms budget, aborting scan`);
+        const empty = [];
+        empty.timedOut = true;
+        return empty;
+      }
+
+      const item = receiveMessageOnPort(channel.port1);
+      worker.terminate();
+      channel.port1.close();
+
+      if (!item || !item.message || !item.message.ok) {
+        return [];
+      }
+      const matches = item.message.matches || [];
+      matches.timedOut = false;
+      return matches;
+    } catch (err) {
+      console.warn("MaskIt: Worker execution failed, falling back to same-thread match:", err.message);
+    }
+  }
+
+  // Fallback for non-Node environments / browser
+  const CUSTOM_RULE_MAX_SCAN_LENGTH = 2000;
+  const scanText = text.length > CUSTOM_RULE_MAX_SCAN_LENGTH ? text.slice(0, CUSTOM_RULE_MAX_SCAN_LENGTH) : text;
+  const regex = typeof regexOrPattern === 'string' ? new RegExp(regexOrPattern, 'gi') : regexOrPattern;
   const start = Date.now();
   regex.lastIndex = 0;
   const matches = [];
   let match;
   let timedOut = false;
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = regex.exec(scanText)) !== null) {
     matches.push(match[0]);
     if (Date.now() - start > timeoutMs) {
       console.warn(`MaskIt: Custom rule exceeded ${timeoutMs}ms budget, aborting scan`);
