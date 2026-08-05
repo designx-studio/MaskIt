@@ -4,7 +4,8 @@
   "private": true,
   "description": "Local protection for sensitive data on supported AI surfaces (browser, CLI, MCP, Windows clipboard).",
   "scripts": {
-    "test": "node test.js && node defaults-sync-test.js && node engine/test.js && node mcp-server/test.js && node parity-test.js && node tests/copilot/copilot-editor.test.js && node tests/file-upload/file-context.test.js && node tests/agent/configuration.test.js && node tests/agent/health-endpoint.test.js && node tests/vscode/vscode-extension.test.js && node tests/security/rule-regression.test.js && node tests/security/performance.test.js && node tests/security/policy-engine.test.js",
+    "pilot-demo": "node scripts/pilot-demo.js",
+    "test": "node test.js && node defaults-sync-test.js && node engine/test.js && node mcp-server/test.js && node parity-test.js && node tests/copilot/copilot-editor.test.js && node tests/file-upload/file-context.test.js && node tests/agent/configuration.test.js && node tests/agent/health-endpoint.test.js && node tests/vscode/vscode-extension.test.js && node tests/security/rule-regression.test.js && node tests/security/performance.test.js && node tests/security/policy-engine.test.js && node tests/content/content-test.js",
     "test:docs": "node scripts/verify-doc-consistency.js",
     "test:regex": "node scripts/validate-regex-safety.js",
     "test:browser-surface": "node scripts/validate-browser-surface.js",
@@ -37,6 +38,7 @@
     "test:parity": "node parity-test.js"
   },
   "devDependencies": {
+    "jsdom": "^29.1.1",
     "playwright": "1.49.1",
     "safe-regex": "^2.1.1"
   }
