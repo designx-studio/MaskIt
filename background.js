@@ -6,10 +6,29 @@ function getPauseState(callback) { try { chrome.storage.session.get({ paused: fa
 function setPauseState(paused, callback) { try { chrome.storage.session.set({ paused }, () => { if (callback) callback(); }); } catch { if (callback) callback(); } }
 function broadcastPauseState(paused, tabId) { const msg = { type: "PAUSE_STATE_CHANGED", paused }; if (typeof tabId === "number") { chrome.tabs.sendMessage(tabId, msg, () => { void chrome.runtime.lastError; }); return; } chrome.tabs.query({}, (tabs) => tabs.forEach((tab) => { if (tab.id) chrome.tabs.sendMessage(tab.id, msg, () => { void chrome.runtime.lastError; }); })); }
 function getStats(callback) { chrome.storage.local.get({ stats: MASKIT_STATS_DEFAULTS }, (data) => callback(data.stats || { ...MASKIT_STATS_DEFAULTS })); }
-function saveStats(stats) { chrome.storage.local.set({ stats }); }
+function saveStats(stats) {
+  chrome.storage.local.set({ stats }, () => {
+    if (chrome.runtime.lastError) {
+      console.error("MaskIt: Failed to save stats:", chrome.runtime.lastError.message);
+    }
+  });
+}
 function recordRedactions(counts, source) { if (!counts || !Object.keys(counts).length) return; getStats((stats) => { const added = Object.values(counts).reduce((sum, count) => sum + count, 0); stats.totalRedactions += added; stats.bySource = stats.bySource || { paste: 0, copy: 0, typing: 0 }; stats.byType = stats.byType || {}; stats.bySource[source] = (stats.bySource[source] || 0) + added; Object.entries(counts).forEach(([type, count]) => { stats.byType[type] = (stats.byType[type] || 0) + count; }); saveStats(stats); updateActionBadge(); }); }
 function getAuditLog(callback) { chrome.storage.local.get({ auditLog: { events: [], retentionDays: 30 } }, (data) => callback(data.auditLog || { events: [], retentionDays: 30 })); }
-function saveAuditLog(auditLog) { chrome.storage.local.set({ auditLog }); }
+const AUDIT_LOG_MAX_EVENTS = 5000;
+function saveAuditLog(auditLog) {
+  if (auditLog && auditLog.events && auditLog.events.length > AUDIT_LOG_MAX_EVENTS) {
+    auditLog.events = auditLog.events.slice(-AUDIT_LOG_MAX_EVENTS);
+  }
+  chrome.storage.local.set({ auditLog }, () => {
+    if (chrome.runtime.lastError) {
+      console.error("MaskIt: Failed to save audit log:", chrome.runtime.lastError.message);
+      chrome.storage.local.set({ auditLogWriteError: true }, () => {
+        if (chrome.runtime.lastError) console.error("MaskIt: Failed to set audit log error flag:", chrome.runtime.lastError.message);
+      });
+    }
+  });
+}
 function eventTimestampMs(event) {
   if (!event) return 0;
   if (typeof event.timestamp === "number") return event.timestamp;
@@ -116,14 +135,30 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       explanation: `Configuration imported (${Object.keys(validation.settings).length} settings).`
     });
     recordAuditEvents([importEvent]);
-    chrome.storage.local.set(validation.settings, () => { updateActionBadge(); sendResponse({ ok: true, appliedSettings: Object.keys(validation.settings).length }); });
+    chrome.storage.local.set(validation.settings, () => {
+      if (chrome.runtime.lastError) {
+        console.error("MaskIt: Failed to import config:", chrome.runtime.lastError.message);
+        sendResponse({ ok: false, error: "Failed to save settings: " + chrome.runtime.lastError.message });
+        return;
+      }
+      updateActionBadge();
+      sendResponse({ ok: true, appliedSettings: Object.keys(validation.settings).length });
+    });
     return true;
   }
   if (message.type === "UPDATE_BADGE") { updateActionBadge(); sendResponse({ ok: true }); return true; }
   if (message.type === "OPEN_OPTIONS") { chrome.runtime.openOptionsPage(); sendResponse({ ok: true }); return true; }
   if (message.type === "GET_PAUSE_STATE") { getPauseState((paused) => sendResponse({ paused })); return true; }
   if (message.type === "TOGGLE_PAUSE") { getPauseState((paused) => { const newPaused = !paused; setPauseState(newPaused, () => { broadcastPauseState(newPaused); updateActionBadge(); sendResponse({ paused: newPaused }); }); }); return true; }
-  if (message.type === "ADD_TO_BLOCKLIST") { const hostname = message.hostname; if (!hostname) { sendResponse({ ok: false }); return true; } chrome.storage.local.get(MASKIT_DEFAULTS, (settings) => { const list = [...(settings.siteList || [])].map((e) => String(e).trim()).filter(Boolean); const mode = settings.siteListMode || "all"; let newList = list; let newMode = mode; if (mode === "allowlist") newList = list.filter((e) => e !== hostname); else { if (!list.includes(hostname)) newList = [...list, hostname]; newMode = "blocklist"; } chrome.storage.local.set({ siteList: newList, siteListMode: newMode }, () => { updateActionBadge(); sendResponse({ ok: true }); }); }); return true; }
+  if (message.type === "ADD_TO_BLOCKLIST") { const hostname = message.hostname; if (!hostname) { sendResponse({ ok: false }); return true; } chrome.storage.local.get(MASKIT_DEFAULTS, (settings) => { const list = [...(settings.siteList || [])].map((e) => String(e).trim()).filter(Boolean); const mode = settings.siteListMode || "all"; let newList = list; let newMode = mode; if (mode === "allowlist") newList = list.filter((e) => e !== hostname); else { if (!list.includes(hostname)) newList = [...list, hostname]; newMode = "blocklist"; }       chrome.storage.local.set({ siteList: newList, siteListMode: newMode }, () => {
+        if (chrome.runtime.lastError) {
+          console.error("MaskIt: Failed to update blocklist:", chrome.runtime.lastError.message);
+          sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+        updateActionBadge();
+        sendResponse({ ok: true });
+      }); }); return true; }
 });
 try { chrome.contextMenus.onClicked.addListener((info, tab) => { if (info.menuItemId === "maskit-scan-selection" && info.selectionText && tab && tab.id) chrome.tabs.sendMessage(tab.id, { type: "SCAN_SELECTION", text: info.selectionText }, () => { void chrome.runtime.lastError; }); }); } catch { }
-chrome.commands.onCommand.addListener((command) => { if (command === "toggle-protection") { chrome.storage.local.get(MASKIT_DEFAULTS, (items) => chrome.storage.local.set({ enabled: !items.enabled }, () => updateActionBadge())); return; } if (command === "pause-protection") getPauseState((paused) => { const newPaused = !paused; setPauseState(newPaused, () => { broadcastPauseState(newPaused); updateActionBadge(); }); }); });
+chrome.commands.onCommand.addListener((command) => { if (command === "toggle-protection") { chrome.storage.local.get(MASKIT_DEFAULTS, (items) => chrome.storage.local.set({ enabled: !items.enabled }, () => { if (chrome.runtime.lastError) console.error("MaskIt: Failed to toggle protection:", chrome.runtime.lastError.message); updateActionBadge(); })); return; } if (command === "pause-protection") getPauseState((paused) => { const newPaused = !paused; setPauseState(newPaused, () => { broadcastPauseState(newPaused); updateActionBadge(); }); }); });
