@@ -1,0 +1,142 @@
+# MaskIt Remediation — Coding Agent Task Brief
+
+You are working in a local checkout of `designx-studio/MaskIt` with push access already configured. Fix the issues below **in the order listed** — each is scoped independently, but P0s block any store submission / enterprise pitch and should land first. Do not refactor unrelated code while you're in a file — stay scoped to each task.
+
+## Git workflow
+- Work off `main`, create one branch per numbered task: `fix/01-silent-audit-log-failures`, `fix/02-redos-custom-rules`, etc. (use the task's short slug from its heading).
+- One commit per task minimum (split into smaller commits within a task if it's genuinely more readable — e.g. "add cap + eviction" separate from "add error handling"). Commit message format: `fix(scope): short summary` + a body explaining the problem and the fix, e.g.:
+  ```
+  fix(background): handle chrome.storage.local.set failures on audit log writes
+
+  saveAuditLog() previously had no callback or lastError check, so writes
+  silently dropped on quota errors. Adds error handling, an eviction cap,
+  and a write-error flag the popup can surface.
+  ```
+- After each task's tests pass locally, push the branch (`git push -u origin <branch>`) and open a PR against `main` with a short description (problem/fix/testing) — don't merge automatically, leave that for review, unless explicitly told otherwise.
+- Do not force-push over anyone else's work; if `main` has moved since you branched, rebase before opening the PR.
+- Keep P0/P1 branches independent of each other where possible so they can be reviewed and merged in isolation rather than as one giant PR — only stack a branch on another (e.g. task 5 on task 1, since both touch audit-log storage) when they'd conflict otherwise, and call that dependency out explicitly in the PR description.
+- After all tasks are done, report a summary list: task → branch → PR link (or local branch name if PRs aren't set up) → files touched.
+
+---
+
+## P0 — Ship blockers
+
+### 1. Silent audit-log write failures (`background.js`)
+**Problem:** `saveAuditLog()` (line 12) calls `chrome.storage.local.set({ auditLog })` with no callback and no `chrome.runtime.lastError` check. If the write fails (quota exceeded, corrupted state, etc.) the audit trail silently drops the event with zero signal to the user or admin — unacceptable for a compliance-facing feature.
+
+**Fix:**
+- Add a callback to every `chrome.storage.local.set` call that touches `auditLog`, check `chrome.runtime.lastError`, and on failure: (a) log to `console.error`, (b) surface a badge/notification state the popup UI can read (e.g. write an `auditLogWriteError: true` flag to a separate small storage key that doesn't itself risk the same quota failure), (c) do not silently swallow it.
+- Declare `"unlimitedStorage"` in `manifest.json` permissions, OR implement a hard cap on `auditLog.events.length` (e.g. 5,000 entries, oldest-first eviction) so you never hit quota in the first place. Prefer the cap — it also fixes the performance issue in task 5.
+- Apply the same pattern everywhere else in `background.js` that calls `chrome.storage.local.set` without error handling (grep for `chrome.storage.local.set` and check each call site).
+
+**Test:** Add a case to the relevant test file that mocks `chrome.storage.local.set` to invoke its callback with `chrome.runtime.lastError` set, and asserts the error path is taken (flag written / logged) rather than swallowed silently.
+
+---
+
+### 2. ReDoS exposure via user-supplied custom regex rules (`engine/settings.js`, `engine/detector.js`)
+**Problem:** `isRegexSafe()` in `engine/settings.js` (~line 99) is a denylist of five known-dangerous regex shapes. Denylist-based ReDoS protection is incomplete by construction — it stops textbook catastrophic-backtracking patterns but not all of them. Custom rules are compiled directly via `new RegExp(pattern, 'gi')` in `compileCustomRule()` (`engine/detector.js:94-99`) and run against up to `REGEX_LIMITS.maxScanLength` (50,000) characters of potentially adversarial input.
+
+**Fix:**
+- Do not rely solely on pattern-shape heuristics. Add an actual execution-time guard:
+  - In Node/MCP/CLI/agent contexts: wrap custom-rule matching in a timeout (e.g. run the match in a `worker_threads` Worker with a hard `setTimeout`-based termination, or use a battle-tested ReDoS-safe regex library such as `re2` or `safe-regex2` to validate patterns before compiling them).
+  - In the browser content script: since Workers add complexity there, at minimum add a wall-clock budget check — if scanning a single custom rule against the current text exceeds e.g. 50ms, abort that rule for this scan cycle and flag it in the options UI as "this custom rule is too slow and was skipped" so the user knows to fix it, rather than freezing the tab.
+- Keep `isRegexSafe()` as a first-pass filter (cheap, catches obvious cases), but treat it as defense-in-depth, not the only control.
+
+**Test:** Add a test with a pattern known to cause catastrophic backtracking that currently slips past `isRegexSafe` (e.g. one not covered by the five existing denylist regexes — try something like alternation nested three levels deep) and assert it's terminated/rejected within the time budget rather than hanging the test process.
+
+---
+
+## P1 — Correctness & data-integrity bugs
+
+### 3. Duplicate event listeners cause double-processing (`content.js`)
+**Problem:** Lines 1657-1660 register `paste` and `copy` handlers on **both** `document` and `window` with `capture: true`. Both fire during the capture phase for the same user action, meaning `handlePaste`/`handleCopy` can run twice per event — risking double redaction application and duplicate audit-log entries.
+
+**Fix:** Remove the redundant `window`-level listeners; keep only the `document`-level ones (capture on `document` already intercepts before the target element sees the event, which is the actual goal). If there's a specific reason both were added (e.g. some site swallows the event before it reaches `document`), add a code comment explaining why and add a guard (e.g. an event-id dedupe check) instead of blindly double-registering.
+
+**Test:** Simulate a `paste` event with a jsdom-based harness (see task 6 for the harness this depends on) and assert the redaction/audit-event path runs exactly once.
+
+---
+
+### 4. Synchronous full-scan on every keystroke causes typing lag (`content.js`)
+**Problem:** `handleBeforeInput` (lines 690-757) runs a synchronous `detectSensitiveData()` call against the full field content on every `insertText` event — before any debounce. Combined with `handleInput`/`handleKeyup` scheduling *additional* debounced scans of the same content, a single keystroke on a rich editor can trigger detection 2-3 times, each scanning ~30 regex rules against the full text.
+
+**Fix:**
+- Make the `handleBeforeInput` synchronous scan cheap: only scan the **delta** (the proposed insertion plus a small trailing/leading context window, e.g. last 200 chars) rather than the entire field content, when the field exceeds some threshold length (e.g. 500 chars). Full-field scans should stay on the existing debounced path (`scheduleTypingScan`), not duplicate into the sync path.
+- Deduplicate the redundant scheduling: `handleInput` and `handleKeyup` should not both independently call `scheduleTypingScan` for the same logical keystroke — consolidate so only one debounce path is armed per input event. Pick `handleInput` as the primary driver (it already fires reliably for both typed and IME/composition input) and make `handleKeyup` only handle the "user pressed space/enter/tab → flush immediately" case it currently has, not the general debounce.
+
+**Test:** Add a jsdom test that simulates 20 rapid keystrokes into a contenteditable/textarea and asserts `detectSensitiveData` (mock/spy it) is called fewer than N times (define N based on the debounce design, e.g. ≤ 2 for a burst of 20 keystrokes within the debounce window).
+
+---
+
+### 5. Audit log is a full read-modify-write on every single event (`background.js`)
+**Problem:** `getAuditLog()` → mutate → `saveAuditLog()` round-trips the entire `events` array through `chrome.storage.local` for every new entry. This is O(n) per event and gets linearly worse as the log fills within the retention window — it will become the dominant cost of every paste/type/copy action for active users.
+
+**Fix:**
+- Cap `auditLog.events` at a fixed max length (ties into task 1's storage-quota fix) so the array never grows unbounded — evict oldest entries past the cap regardless of retention-day settings.
+- Consider batching: instead of writing to storage synchronously on every single detection event, buffer new events in memory and flush to `chrome.storage.local` on a short interval (e.g. every 2s) or on a count threshold (e.g. every 10 events), whichever comes first. Make sure a flush also happens on `chrome.runtime.onSuspend` / extension unload so buffered events aren't lost.
+
+**Test:** Add a test asserting that N rapid-fire audit events result in fewer than N calls to `chrome.storage.local.set` (verifying batching), and a separate test asserting the events array never exceeds the configured cap.
+
+---
+
+## P2 — Security hardening (lower urgency, do before wider distribution)
+
+### 6. CSV export is vulnerable to formula injection (`options.js`)
+**Problem:** The CSV export handler (lines 464-476) escapes commas and quotes but does not neutralize values beginning with `=`, `+`, `-`, or `@` — meaning a redacted value, app name, or matched-rule string that starts with one of those characters becomes an executable formula when the CSV is opened in Excel/Google Sheets.
+
+**Fix:** In the CSV cell-building logic, if a value starts with `=`, `+`, `-`, or `@`, prefix it with a single leading `'` (apostrophe) before applying the existing quote/comma escaping. Apply this to every field, not just user-controlled ones — matched values and rule names can both originate from arbitrary scanned content.
+
+**Test:** Add a case where a mock audit event has a field value like `=1+1` or `@SUM(A1:A2)` and assert the exported CSV row has it prefixed with `'`.
+
+---
+
+### 7. Plaintext clipboard value retained in memory without scrubbing (`maskit-agent/Maskit.Agent/Services/ClipboardMonitor.cs`)
+**Problem:** `_lastText` holds the last clipboard value — captured *before* redaction — as a plain `string` for the life of the process, with no scrubbing. Minor exposure via memory/heap forensics, notable because the entire point of this tool is minimizing sensitive-data exposure.
+
+**Fix:** Store a hash (e.g. SHA-256, consistent with the hashing approach already used elsewhere in the codebase for `MatchedValueHash`) instead of the raw text for the dedupe check in `TryProcessClipboard`/`ProcessOpenClipboard`. Compare hashes instead of raw strings to detect "unchanged clipboard" and avoid reprocessing.
+
+**Test:** Add/extend a C# unit test asserting that after processing clipboard content, no field on `ClipboardMonitor` retains the raw sensitive string (reflect over private fields in the test, or restructure so the dedupe value is provably a hash by type).
+
+---
+
+### 8. Regex objects recompiled on every scan instead of cached (`engine/detector.js`)
+**Problem:** `engine/rule-loader.js` correctly caches the parsed rule *strings*, but `detectSensitiveData()` (`engine/detector.js` ~line 120) still calls `new RegExp(rule.pattern, rule.flags || 'g')` fresh on every single invocation, for every rule (~30+). This is pure waste on a function that's called on nearly every keystroke/clipboard event.
+
+**Fix:** Extend `engine/rule-loader.js`'s cache to also store compiled `RegExp` objects alongside the raw rule data (invalidate/recompile only on `clearRuleCache()`/`forceReload`). Update `detectSensitiveData` and `getPatternsMap`/`getApiKeyPatterns` in `engine/detector.js` to pull the precompiled regex instead of constructing a new one each call. Watch out for shared `lastIndex` state on global (`g`) flag regexes if the same compiled object is reused across concurrent calls — reset `lastIndex = 0` before each `.match()`/`.exec()` call as the code already does in a couple of places, or clone the regex per call if reuse proves unsafe.
+
+**Test:** Add a benchmark-style test (or extend `tests/security/performance.test.js`) asserting that calling `detectSensitiveData` N times doesn't construct more than the expected number of `RegExp` objects — spy on the global `RegExp` constructor if feasible, or time-box the test and assert a performance ceiling.
+
+---
+
+## P3 — Testing infrastructure debt
+
+### 9. Zero functional test coverage on `content.js`
+**Problem:** `content.js` is the largest file in the repo (1,669 lines) and the most security-critical — it handles paste/copy/typing interception and DOM manipulation directly on ChatGPT/Claude/Gemini pages. The only reference to it anywhere in `tests/` or `test.js` is a manifest sanity check (`test.js:34`) and a check that a stale function name is absent (`test.js:38`). There is no functional coverage at all.
+
+**Fix:**
+- Set up a `jsdom`-based test harness (add `jsdom` as a dev dependency) that can load `content.js` in a simulated DOM with a mocked `chrome.*` API surface (storage, runtime messaging).
+- At minimum, cover: (a) paste-event redaction end-to-end for each supported data type, (b) the killswitch modal blocking input when active, (c) the typing-debounce behavior from task 4, (d) the duplicate-listener fix from task 3, (e) review-dialog flow when `reviewBeforeRedact` is enabled.
+- Wire this new test file into the `"test"` script in `package.json` alongside the existing chain.
+
+**Test:** This task *is* the test work — deliver the harness plus the above coverage as the acceptance criteria.
+
+---
+
+### 10. Test runner is a fragile `&&`-chained script with no isolation or coverage reporting
+**Problem:** `package.json`'s `"test"` script chains ~13 separate `node file.js` invocations with `&&`. A failure partway through aborts everything after it, so a single early failure hides the pass/fail status of every later file. There's no coverage tool, so "how much of the codebase is actually tested" is currently unknowable rather than just low.
+
+**Fix:**
+- Migrate to a real test runner — `node:test` (built into Node 18+, zero new dependency) is the lowest-friction option given the existing `assert`-based style already matches it closely. Wrap each existing test file's assertions in `describe`/`it` blocks (or use `node:test`'s runner to execute all files and aggregate results even when one fails).
+- Add `c8` (or `node --experimental-test-coverage`) for coverage reporting, and add a `"test:coverage"` script.
+- Keep individual test files runnable standalone (`node engine/test.js`) if that's valued for quick iteration during development, but the aggregate `npm test` should report a single pass/fail count across all files instead of stopping at the first failure.
+
+**Test:** This is infra work — acceptance criteria is that `npm test` runs all suites to completion and reports individual failures without early-exit, and `npm run test:coverage` produces a coverage report.
+
+---
+
+## Ground rules for the whole pass
+- Don't touch `maskit-core/rules/*.json` detection patterns unless a task explicitly calls for it — those are product logic, not part of this remediation.
+- Preserve the existing code style (this repo favors dense single-line function bodies in `settings.js`/`background.js`) rather than reformatting files you touch, unless a task specifically asks you to restructure.
+- Before pushing each branch, run `npm test` and confirm it's still green (or, if you've landed task 10 first, confirm the new runner reports all-green).
+- If any fix requires a new npm dependency, prefer the smallest, most maintained option, add it via `npm install --save-dev <pkg>` (or non-dev if it's a runtime dep) so `package-lock.json` updates properly, and call it out explicitly in the PR description rather than silently adding it.
+- If you hit a blocker on a task (e.g. a test framework decision that affects task 9 and 10 together), stop and flag it in your summary rather than guessing and pushing something half-right.

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { triggerScan, getActiveDiagnostics } from './diagnostics';
 import { scanText } from './scanner';
 
-export function scanCurrentFile() {
+export async function scanCurrentFile() {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showInformationMessage("No active text editor open.");
@@ -13,13 +13,43 @@ export function scanCurrentFile() {
   if (findings.length === 0) {
     vscode.window.showInformationMessage("MaskIt: No sensitive credentials detected in this file.");
   } else {
-    vscode.window.showWarningMessage(
-      `MaskIt: Detected ${findings.length} sensitive credential(s) in this file.`
+    const action = await vscode.window.showWarningMessage(
+      `MaskIt Warning: Detected ${findings.length} sensitive credential(s) in this file.`,
+      "Remove Secret",
+      "Review",
+      "Cancel"
     );
+
+    if (action === "Remove Secret") {
+      await removeSecretsFromEditor(editor, findings);
+    } else if (action === "Review") {
+      showFindings();
+    }
   }
 }
 
-export function scanSelection() {
+export async function removeSecretsFromEditor(editor: vscode.TextEditor, findings: any[]) {
+  const document = editor.document;
+  const fullText = document.getText();
+  
+  await editor.edit(editBuilder => {
+    findings.forEach(f => {
+      if (f.value) {
+        let index = fullText.indexOf(f.value);
+        while (index !== -1) {
+          const startPos = document.positionAt(index);
+          const endPos = document.positionAt(index + f.value.length);
+          editBuilder.replace(new vscode.Range(startPos, endPos), `[REDACTED_${f.type || 'SECRET'}]`);
+          index = fullText.indexOf(f.value, index + f.value.length);
+        }
+      }
+    });
+  });
+  
+  vscode.window.showInformationMessage("MaskIt: Sensitive credential(s) replaced with redaction placeholder.");
+}
+
+export async function scanSelection() {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showInformationMessage("No active text editor open.");
@@ -39,9 +69,18 @@ export function scanSelection() {
     vscode.window.showInformationMessage("MaskIt: Selection is clean.");
   } else {
     const list = result.findings.map(f => `${f.type} (${f.severity})`).join(", ");
-    vscode.window.showWarningMessage(
-      `MaskIt Warning: Sensitive data found in selection: ${list}`
+    const action = await vscode.window.showWarningMessage(
+      `MaskIt Warning: Sensitive data found in selection: ${list}`,
+      "Remove Secret",
+      "Review",
+      "Cancel"
     );
+
+    if (action === "Remove Secret") {
+      await removeSecretsFromEditor(editor, result.findings);
+    } else if (action === "Review") {
+      showFindings();
+    }
   }
 }
 

@@ -200,7 +200,7 @@ function applyPolicyToFindings(findings, context, settings) {
   const policy = selectPolicy(context, settings);
   return findings.map((f) => {
     const typeBase = f.type.replace(/^CUSTOM:/, '');
-    const action = getPolicyAction(policy, typeBase);
+    const action = getPolicyAction(policy, typeBase, f.ruleName);
     return {
       finding: f,
       action,

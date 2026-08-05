@@ -1,6 +1,7 @@
 const detector = require('./detector');
 const settings = require('./settings');
 const context = require('./context');
+const report = require('./report');
 const { ruleVersion } = require('./rule-loader');
 
 function scanText(text, scanSettings) {
@@ -55,8 +56,10 @@ module.exports = {
   ...detector,
   ...settings,
   ...context,
+  ...report,
   scanText,
   redactText,
   evaluatePolicy,
   getStatus
 };
+

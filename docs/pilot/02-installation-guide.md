@@ -1,145 +1,69 @@
-# Pilot installation guide
+# MaskIt Pilot Installation Guide
 
-**Customer path:** Download → Install → Verify → Use  
-Do **not** require `git clone` or source builds for pilot users.
-
-Assets: [GitHub Releases (latest)](https://github.com/designx-studio/MaskIt/releases/latest) or the [download page](../../website/download/index.html).
+This guide provides step-by-step instructions for installing MaskIt across supported environments during the initial 5-participant pilot (2 developers, 2 small businesses, 1 IT/MSP evaluator).
 
 ---
 
-## 1. Browser extension (required for most pilots)
+## 1. Browser Extension (Developers & Small Businesses)
 
-### Download
+Supported Browsers: **Chrome, Edge, Firefox, Opera**
 
-- Chrome: `maskit-chrome.zip`  
-- Edge: `maskit-edge.zip`  
-- Firefox: `maskit-firefox.zip`  
-- Opera: `maskit-opera.zip`  
-
-Optional: verify the file against `SHA256SUMS.txt` from the same release.
-
-### Install (Chrome / Edge)
-
-1. Extract the ZIP to a permanent folder (not Downloads if your org cleans it).  
-2. Open `chrome://extensions` or `edge://extensions`.  
-3. Enable **Developer mode**.  
-4. Choose **Load unpacked** and select the extracted folder containing `manifest.json`.  
-5. Pin MaskIt from the toolbar.  
-6. Open **Options / Settings** and confirm protection is **ON**.
-
-### Enterprise note
-
-Many organizations restrict unpacked extensions. For pilots, document a **risk acceptance** or enterprise browser policy exception. Store distribution is not required for design partners but may be required for broad rollout later.
-
-### Verify
-
-1. Open a supported host (e.g. `https://chatgpt.com`).  
-2. Paste a **synthetic** test string: `Contact pilot-test@example.com`.  
-3. Confirm the email is masked/redacted (or blocked per policy) and that page content is not uploaded to Maskit.  
-4. Open extension options → **Audit log** and confirm an event with type/metadata and **no raw email**.
-
-### Uninstall
-
-Remove MaskIt from the browser extensions manager. Optionally clear extension data when prompted.
+### Installation Steps
+1. Download the latest `maskit-browser-extension.zip` release artifact.
+2. Unpack the ZIP archive to a local folder (e.g. `C:\Tools\MaskIt-Extension`).
+3. Open your browser's extension page:
+   - Chrome / Edge: `chrome://extensions` or `edge://extensions` (Enable **Developer mode** toggle in top-right).
+   - Firefox: `about:debugging#/runtime/this-firefox` -> **Load Temporary Add-on...**
+4. Click **Load unpacked** and select the unpacked folder.
+5. Confirm the MaskIt shield icon appears in your toolbar.
 
 ---
 
-## 2. Windows agent (optional beta)
+## 2. VS Code Extension (Developers)
 
-### Download
-
-- `maskit-windows-agent.zip` (self-contained `win-x64`)
-
-### Install
-
-1. Extract the ZIP.  
-2. Open `publish\Maskit.Agent.exe` (tray agent).  
-3. Confirm tray icon is active and protection is ON.  
-
-No MSI is provided in v2.4.0. The package is portable and **not code-signed** as a store/MSI installer unless a future release adds signing.
-
-### Verify
-
-From `publish\` (Command Prompt or PowerShell):
-
-```powershell
-.\Maskit.Agent.exe --self-test
-.\Maskit.Agent.exe --scan "email pilot-test@example.com" --json
-```
-
-Expect: `SELFTEST PASS` and JSON events with `schemaVersion: "1.0"`, `source: "windows"`, and `matchedValueHash` only.
-
-Clipboard check: copy a synthetic API-key-shaped string while an AI app is focused; confirm clipboard is redacted when policy requires it.
-
-### Uninstall
-
-1. Exit the tray agent.  
-2. Delete the extracted folder.  
-3. Optional: remove `%AppData%\Maskit\` (config + local audit).
+### Installation Steps
+1. Open VS Code.
+2. Navigate to `maskit-vscode` directory or install via `.vsix` package:
+   - Run `code --install-extension maskit-vscode-2.4.0.vsix`
+3. Alternatively, open `maskit-vscode` in VS Code and press `F5` to run in Extension Development Host mode.
+4. Verify status bar item `MaskIt: Active` appears.
 
 ---
 
-## 3. CLI (optional)
+## 3. Windows Clipboard Agent (IT/MSP Evaluator & Small Business Endpoints)
 
-### Download
+### Installation Steps
+1. Extract `maskit-windows-agent.zip` into `C:\Program Files\MaskIt\`.
+2. Run `Maskit.Agent.exe --register-startup` (or run executable directly).
+3. The agent will silently monitor clipboard activity and enforce local redaction policies.
 
-- `maskit-cli.tar.gz`
+---
 
-### Install
+## 4. MCP Server & CLI (Developers & AI Workflows)
 
+### Installation Steps
 ```bash
-# Extract, then from the package root that contains cli.js:
-node cli.js scan "email pilot-test@example.com" --json
+npm install -g @maskit/mcp-server
+# Or run locally from source:
+cd mcp-server
+node cli.js scan "test string"
+```
+To connect to Claude Desktop or Cursor:
+Add to `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "maskit": {
+      "command": "node",
+      "args": ["/path/to/maskit-extension/mcp-server/server.js"]
+    }
+  }
+}
 ```
 
-(On Windows, use `tar -xzf maskit-cli.tar.gz` then run with full path to `node`.)
-
-### Verify
-
-Exit code `1` when findings exist is expected. JSON output must include canonical `events` without raw secrets.
-
-### Uninstall
-
-Delete the extracted directory.
-
 ---
 
-## 4. MCP server (optional)
-
-### Download
-
-- `maskit-mcp.tar.gz`
-
-### Install
-
-1. Extract the archive.  
-2. Ensure Node.js 18+ is installed.  
-3. Configure your MCP client to run the packaged server entry (see [MCP guide](../mcp-server.md) for client JSON examples). Prefer absolute paths to the extracted package.  
-4. Restart the MCP client.
-
-### Verify
-
-Call `scan_text` or `get_status` from the client. Confirm findings and events are returned locally.
-
-### Uninstall
-
-Remove the MCP client config entry and delete the extracted directory. Optional: remove the Maskit config directory under the user profile.
-
----
-
-## 5. Updating
-
-1. Export browser settings if customized (Options → export).  
-2. Download the newest release assets.  
-3. Replace packages and re-load the extension / restart the agent.  
-4. Re-run verification steps above.
-
----
-
-## Success checklist
-
-- [ ] Extension loads and shows Active on a supported AI host  
-- [ ] Synthetic PII/secret is redacted or blocked  
-- [ ] Audit log shows metadata + hash only  
-- [ ] (Optional) Windows `--self-test` passes  
-- [ ] (Optional) CLI/MCP scan returns findings without raw secret storage  
+## 5. Verification Checklist (Target: < 10 Minutes Setup)
+- [ ] Browser extension icon visible and active on AI sites (`chatgpt.com`, `claude.ai`).
+- [ ] VS Code extension scanning active files.
+- [ ] Audit log directory initialized at `%APPDATA%\Maskit\audit.jsonl` (Windows) or `~/.config/Maskit/audit.jsonl` (POSIX).

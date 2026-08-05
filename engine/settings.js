@@ -64,11 +64,11 @@ function loadPolicyFile(filePath) {
   }
 }
 
-function mapRuleToPolicyKey(dataType) {
-  const dt = String(dataType).toUpperCase();
+function mapRuleToPolicyKey(dataType, ruleName) {
+  const dt = (String(dataType || "") + "_" + String(ruleName || "")).toUpperCase();
   if (dt.includes("AWS")) return "aws_keys";
   if (dt.includes("GITHUB")) return "github_tokens";
-  if (["EMAIL", "PHONE", "SSN", "PASSPORT", "IP_ADDRESS", "CARD", "BANK_ACCOUNT", "MPESA"].includes(dt)) return "customer_data";
+  if (["EMAIL", "PHONE", "SSN", "PASSPORT", "IP_ADDRESS", "CARD", "BANK_ACCOUNT", "MPESA"].some((k) => dt.includes(k))) return "customer_data";
   return dataType;
 }
 
@@ -79,9 +79,9 @@ function selectPolicy(context, settings) {
   return (ctx.app && policies[ctx.app]) || (ctx.domain && policies[ctx.domain]) || policies.default || {};
 }
 
-function getPolicyAction(policy, dataType) {
+function getPolicyAction(policy, dataType, ruleName) {
   if (policy && policy.actions) {
-    const key = mapRuleToPolicyKey(dataType);
+    const key = mapRuleToPolicyKey(dataType, ruleName);
     const action = policy.actions[key] || policy.actions[dataType];
     if (POLICY_ACTIONS.includes(action)) return action;
     if (policy.mode === "strict") return "block";
