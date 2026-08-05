@@ -69,11 +69,27 @@ function normalizeStoredEvent(event) {
     matchedValueHash: event.matchedValueHash || event.unmaskToken || undefined
   });
 }
-async function recordAuditEvents(events) {
-  if (!events || !events.length) return;
+
+// Audit log batching configuration
+const AUDIT_FLUSH_INTERVAL_MS = 2000;
+const AUDIT_FLUSH_COUNT_THRESHOLD = 10;
+let _pendingAuditEvents = [];
+let _auditFlushTimer = null;
+
+async function flushPendingAuditEvents() {
+  if (_pendingAuditEvents.length === 0) return;
+  
+  const eventsToFlush = [..._pendingAuditEvents];
+  _pendingAuditEvents = [];
+  
+  if (_auditFlushTimer) {
+    clearTimeout(_auditFlushTimer);
+    _auditFlushTimer = null;
+  }
+  
   getAuditLog(async (auditLog) => {
     const existing = auditLog.events || [];
-    for (const raw of events) {
+    for (const raw of eventsToFlush) {
       const event = normalizeStoredEvent(raw);
       if (!event) continue;
       const previousHash = existing.length > 0 ? existing[existing.length - 1].chainHash : null;
@@ -83,6 +99,32 @@ async function recordAuditEvents(events) {
     const cutoff = Date.now() - (auditLog.retentionDays || 30) * 24 * 60 * 60 * 1000;
     auditLog.events = existing.filter((e) => eventTimestampMs(e) >= cutoff);
     saveAuditLog(auditLog);
+  });
+}
+
+function scheduleAuditFlush() {
+  if (_auditFlushTimer) return;
+  _auditFlushTimer = setTimeout(() => {
+    _auditFlushTimer = null;
+    flushPendingAuditEvents();
+  }, AUDIT_FLUSH_INTERVAL_MS);
+}
+
+function recordAuditEvents(events) {
+  if (!events || !events.length) return;
+  _pendingAuditEvents.push(...events);
+  
+  if (_pendingAuditEvents.length >= AUDIT_FLUSH_COUNT_THRESHOLD) {
+    flushPendingAuditEvents();
+  } else {
+    scheduleAuditFlush();
+  }
+}
+
+// Flush on extension unload
+if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onSuspend) {
+  chrome.runtime.onSuspend.addListener(() => {
+    flushPendingAuditEvents();
   });
 }
 function getPageStatus(settings, url) { if (!url || (!url.startsWith("http://") && !url.startsWith("https://"))) return { active: false, hostname: "" }; const hostname = new URL(url).hostname; return { active: settings.enabled !== false && isSiteAllowed(settings, hostname), hostname }; }
