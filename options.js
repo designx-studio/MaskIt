@@ -467,7 +467,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       events.forEach((e) => {
         const row = headers.map((h) => {
-          const val = String(e[h] || "");
+          let val = String(e[h] || "");
+          // Prevent CSV formula injection
+          if (/^[=+\-@\t\r]/.test(val)) {
+            val = "'" + val;
+          }
           return val.includes(",") || val.includes('"') ? '"' + val.replace(/"/g, '""') + '"' : val;
         });
         csvRows.push(row.join(","));
